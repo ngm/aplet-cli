@@ -1,3 +1,4 @@
+from enum import Enum
 from collections import namedtuple
 from gherkin3.parser import Parser
 from os import listdir, path, makedirs
@@ -11,39 +12,41 @@ import xml.etree.ElementTree as et
 gherkin_parser = Parser()
 NodeProps = namedtuple("NodeProps", "fillcolor linecolor shape style")
 
-def get_node_props(node_type="fmfeature", node_concrete=True, node_test_state="inconclusive"):
+class NodeType(Enum):
+    fmfeature = 1,
+    gherkin_piece = 2
+
+class TestState(Enum):
+    inconclusive = 1,
+    failed = 2,
+    passed = 3
+
+def get_node_props(node_type=NodeType.fmfeature, node_concrete=True, node_test_state=TestState.inconclusive):
     shape = None
     fillcolor = "white"
     linecolor = None
     style = "filled"
 
-    if node_type == "fmfeature":
+    if node_type == NodeType.fmfeature:
         shape="box"
-    elif node_type == "gherkin_piece":
-        shape="circle"
+    elif node_type == NodeType.gherkin_piece:
+        shape="oval"
 
-    if node_test_state == "inconclusive":
+    if node_test_state == TestState.inconclusive:
         linecolor = "orange"
         if node_concrete == False:
             fillcolor = "orange"
-    elif node_test_state == "failed":
+    elif node_test_state == TestState.failed:
         linecolor = "red"
         if node_concrete == False:
             fillcolor = "red"
-    elif node_test_state == "passed":
+    elif node_test_state == TestState.passed:
         linecolor = "green"
         if node_concrete == False:
             fillcolor = "green"
 
     return NodeProps(fillcolor=fillcolor, linecolor=linecolor, shape=shape, style=style)
 
-default_node_props = get_node_props("fmfeature", True, "inconclusive")
-inconclusive_node_props = get_node_props("fmfeature", True, "inconclusive")
-passed_node_props = get_node_props("fmfeature", True, "passed")
-failed_node_props = get_node_props("fmfeature", True, "failed")
-inconclusive_abstract_node_props = get_node_props("fmfeature", False, "inconclusive")
-passed_abstract_node_props = get_node_props("fmfeature", False, "passed")
-failed_abstract_node_props = get_node_props("fmfeature", False, "failed")
 
 def parse_tags_from_feature_files(features_dir):
     tags = {}
@@ -109,7 +112,6 @@ def parse_feature(feature, parent, graph, test_results, product_features, gherki
     feature_name = feature.get("name")
     feature_is_abstract = feature.get("abstract") is not None
 
-    node_props = default_node_props
     has_failed_test = False
     node_is_inconclusive = False
 
@@ -135,31 +137,32 @@ def parse_feature(feature, parent, graph, test_results, product_features, gherki
             previous = subgraph_root_name
             for piece_name in gherkin_pieces_for_feature:
                 piece_hash = hashlib.sha256(piece_name.encode('utf-8')).hexdigest()
-                line_color = "#000000"
+                node_props = get_node_props(NodeType.gherkin_piece, True, TestState.inconclusive)
                 if piece_name[3:] in test_results:
                     if test_results[piece_name[3:]] == True:
-                        line_color = "#00cc00"
+                        node_props = get_node_props(NodeType.gherkin_piece, True, TestState.passed)
                     elif test_results[piece_name[3:]] == False:
-                        line_color = "#ff0000"
+                        node_props = get_node_props(NodeType.gherkin_piece, True, TestState.failed)
                         has_failed_test = True
-                subgraph.node(piece_hash, piece_name, color=line_color, fillcolor="white", shape="box")
+                subgraph.node(piece_hash, piece_name, color=node_props.linecolor, fillcolor=node_props.fillcolor, shape=node_props.shape)
                 subgraph.edge(previous, piece_hash, style="invis", weight="0")
                 previous = piece_hash
     else:
         node_is_inconclusive = True
 
 
-    # add fmfeature node
+    node_props = get_node_props(NodeType.fmfeature, True, TestState.inconclusive)
     if feature_is_abstract:
         if node_is_inconclusive:
-            node_props = inconclusive_abstract_node_props
+            node_props = get_node_props(NodeType.fmfeature, False, TestState.inconclusive)
         elif has_failed_test is True:
-            node_props = failed_abstract_node_props
+            node_props = get_node_props(NodeType.fmfeature, False, TestState.failed)
     else:
         if has_failed_test is True:
-            node_props = failed_node_props
+            node_props = get_node_props(NodeType.fmfeature, True, TestState.failed)
 
-    graph.node(feature_name, feature_name, fillcolor=node_props.fillcolor, style='filled', shape='box', color=node_props.linecolor)
+    # add fmfeature node
+    graph.node(feature_name, feature_name, fillcolor=node_props.fillcolor, style=node_props.style, shape=node_props.shape, color=node_props.linecolor)
 
     # add edge to parent
     if parent is not None:
