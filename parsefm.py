@@ -1,74 +1,49 @@
+from collections import namedtuple
 from gherkin3.parser import Parser
-import xml.etree.ElementTree as et
-import graphviz as gv
 from os import listdir, path, makedirs
+import graphviz as gv
+import hashlib
 import json
 import pprint
-import hashlib
 import pprint
+import xml.etree.ElementTree as et
 
 gherkin_parser = Parser()
+NodeProps = namedtuple("NodeProps", "fillcolor linecolor shape style")
 
-def parse_feature(feature, parent, graph, test_results, product_features, tags):
-    feature_name = feature.get("name")
-    feature_is_abstract = feature.get("abstract") is not None
-
-    has_failed_test = False
+def get_node_props(node_type="fmfeature", node_concrete=True, node_test_state="inconclusive"):
+    shape = None
     fillcolor = "white"
+    linecolor = None
+    style = "filled"
 
-    if product_features and feature_name not in product_features and not feature_is_abstract:
-        return has_failed_test and False
+    if node_type == "fmfeature":
+        shape="box"
+    elif node_type == "gherkin_piece":
+        shape="circle"
 
-    for child in feature.getchildren():
-        child_has_failed = parse_feature(child, feature, graph, test_results, product_features, tags)
-        has_failed_test = has_failed_test or child_has_failed
+    if node_test_state == "inconclusive":
+        linecolor = "orange"
+        if node_concrete == False:
+            fillcolor = "orange"
+    elif node_test_state == "failed":
+        linecolor = "red"
+        if node_concrete == False:
+            fillcolor = "red"
+    elif node_test_state == "passed":
+        linecolor = "green"
+        if node_concrete == False:
+            fillcolor = "green"
 
-    # add gherkin nodes
-    if feature_name in tags:
-        tags_for_feature = tags[feature_name]
-        with graph.subgraph(name="cluster_" + feature_name) as subgraph:
-            feature_name_hash = hashlib.sha256(feature_name.encode('utf-8')).hexdigest()
-            subgraph_root_name = "cluster_" + feature_name_hash
-            subgraph.node(subgraph_root_name, label="", shape="none", width="0", height="0", style="invis")
-            graph.edge(feature_name, subgraph_root_name)
-            subgraph.attr(rankdir="TB")
-            previous = subgraph_root_name
-            for piece_name in tags_for_feature:
-                piece_hash = hashlib.sha256(piece_name.encode('utf-8')).hexdigest()
-                line_color = "#000000"
-                if piece_name[3:] in test_results:
-                    if test_results[piece_name[3:]] == True:
-                        line_color = "#00cc00"
-                    elif test_results[piece_name[3:]] == False:
-                        line_color = "#ff0000"
-                        has_failed_test = True
-                subgraph.node(piece_hash, piece_name, color=line_color, fillcolor="white", shape="box")
-                subgraph.edge(previous, piece_hash, style="invis", weight="0")
-                previous = piece_hash
+    return NodeProps(fillcolor=fillcolor, linecolor=linecolor, shape=shape, style=style)
 
-    # add fmfeature node
-    line_color = "green"
-    if feature_is_abstract:
-        fillcolor = "#cccccc"
-        if has_failed_test is True:
-            fillcolor = "#ffcccc"
-            line_color = "red"
-    else:
-        if has_failed_test is True:
-            fillcolor = "#ffeeee"
-            line_color = "red"
-
-    graph.node(feature_name, feature_name, fillcolor=fillcolor, style='filled', shape='box', color=line_color)
-
-    # add edge to parent
-    if parent is not None:
-        parent_name = parent.get("name")
-        arrowhead = "odot"
-        if feature.get("mandatory") is not None:
-            arrowhead = "dot"
-        graph.edge(parent_name, feature_name, arrowhead=arrowhead)
-
-    return has_failed_test
+default_node_props = get_node_props("fmfeature", True, "inconclusive")
+inconclusive_node_props = get_node_props("fmfeature", True, "inconclusive")
+passed_node_props = get_node_props("fmfeature", True, "passed")
+failed_node_props = get_node_props("fmfeature", True, "failed")
+inconclusive_abstract_node_props = get_node_props("fmfeature", False, "inconclusive")
+passed_abstract_node_props = get_node_props("fmfeature", False, "passed")
+failed_abstract_node_props = get_node_props("fmfeature", False, "failed")
 
 def parse_tags_from_feature_files(features_dir):
     tags = {}
@@ -128,6 +103,74 @@ def parse_product_features(productconfig):
         product_features.append("todoapp")
 
     return product_features
+
+
+def parse_feature(feature, parent, graph, test_results, product_features, gherkin_pieces):
+    feature_name = feature.get("name")
+    feature_is_abstract = feature.get("abstract") is not None
+
+    node_props = default_node_props
+    has_failed_test = False
+    node_is_inconclusive = False
+
+
+    # if working on a specific product, skip processing for nodes not in that product's config
+    if product_features and feature_name not in product_features and not feature_is_abstract:
+        return has_failed_test and False
+
+    # recursively parse the children
+    for child in feature.getchildren():
+        child_has_failed = parse_feature(child, feature, graph, test_results, product_features, gherkin_pieces)
+        has_failed_test = has_failed_test or child_has_failed
+
+    # add gherkin nodes
+    if feature_name in gherkin_pieces:
+        gherkin_pieces_for_feature = gherkin_pieces[feature_name]
+        with graph.subgraph(name="cluster_" + feature_name) as subgraph:
+            feature_name_hash = hashlib.sha256(feature_name.encode('utf-8')).hexdigest()
+            subgraph_root_name = "cluster_" + feature_name_hash
+            subgraph.node(subgraph_root_name, label="", shape="none", width="0", height="0", style="invis")
+            graph.edge(feature_name, subgraph_root_name)
+            subgraph.attr(rankdir="TB")
+            previous = subgraph_root_name
+            for piece_name in gherkin_pieces_for_feature:
+                piece_hash = hashlib.sha256(piece_name.encode('utf-8')).hexdigest()
+                line_color = "#000000"
+                if piece_name[3:] in test_results:
+                    if test_results[piece_name[3:]] == True:
+                        line_color = "#00cc00"
+                    elif test_results[piece_name[3:]] == False:
+                        line_color = "#ff0000"
+                        has_failed_test = True
+                subgraph.node(piece_hash, piece_name, color=line_color, fillcolor="white", shape="box")
+                subgraph.edge(previous, piece_hash, style="invis", weight="0")
+                previous = piece_hash
+    else:
+        node_is_inconclusive = True
+
+
+    # add fmfeature node
+    if feature_is_abstract:
+        if node_is_inconclusive:
+            node_props = inconclusive_abstract_node_props
+        elif has_failed_test is True:
+            node_props = failed_abstract_node_props
+    else:
+        if has_failed_test is True:
+            node_props = failed_node_props
+
+    graph.node(feature_name, feature_name, fillcolor=node_props.fillcolor, style='filled', shape='box', color=node_props.linecolor)
+
+    # add edge to parent
+    if parent is not None:
+        parent_name = parent.get("name")
+        arrowhead = "odot"
+        if feature.get("mandatory") is not None:
+            arrowhead = "dot"
+        graph.edge(parent_name, feature_name, arrowhead=arrowhead)
+
+    return has_failed_test
+
 
 
 def parse_feature_model(model_xml_file, features_dir, reports_dir, productconfig, output_dir, output_filename):
