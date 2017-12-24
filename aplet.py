@@ -45,6 +45,48 @@ def init(projectfolder):
         makedirs(testreports_path)
 
 
+@aplet.command()
+@click.option("--projectfolder", default=".", help="Location to output the aplet files")
+@click.argument("product")
+@click.argument("app_dir")
+def runtests(projectfolder, product, app_dir):
+    featuremodel_path = path.join(projectfolder, "productline", "model.xml")
+    configs_path = path.join(projectfolder, "productline", "configs")
+    bddfeatures_path = path.join(projectfolder, "bddfeatures")
+    testreports_path = path.join(projectfolder, "testreports")
+
+    if not path.exists(testreports_path):
+        makedirs(testreports_path)
+
+    # TODO: needs some rethinking.  Where should we pick up the running app from?
+    product_config_file_path = path.join(configs_path, product + ".config")
+    shutil.copyfile(product_config_file_path, path.join(app_dir, "todo.config"))
+
+    feature_toggles = []
+    with open(product_config_file_path, "r") as product_config_file:
+        features = product_config_file.readlines()
+        feature_toggles = [feature.strip() for feature in features]
+
+        # TODO: add not toggles
+        #not_feature_toggles = [" -g Not" + feature.strip() for feature in features]
+        #export NOTFEATURES=$(comm -13 <(sort eclipse/configs/$PRODUCT.config) <(sort eclipse/configs/optionals.config) | sed 's?\(.*\)?-g Not\1 ?' | tr -d '\r\n')
+
+    click.echo("Running tests")
+    chdir(projectfolder)
+    cmd_list = ["php", "vendor/bin/codecept", "run", "acceptance", "--debug", "--json", "--html", "--xml"]
+    for feature_toggle in feature_toggles:
+        cmd_list.append("-g")
+        cmd_list.append(feature_toggle)
+
+    subprocess.call(cmd_list)
+
+    # copying report file for product
+    shutil.copyfile("tests/_output/report.json", path.join("..", testreports_path, "report" + product + ".json"))
+    shutil.copyfile("tests/_output/report.html", path.join("..", testreports_path, "report" + product + ".html"))
+    shutil.copyfile("tests/_output/report.xml", path.join("..", testreports_path, "report" + product + ".xml"))
+
+    chdir("..")
+
 
 @aplet.command()
 @click.option("--projectfolder", default=".", help="Location to output the aplet files")
@@ -62,10 +104,8 @@ def makedocs(projectfolder, runtests):
     lektor_temp_dir = path.join(docs_dir, "lektor")
     if not path.exists(lektor_temp_dir):
         shutil.copytree("templates/lektor", lektor_temp_dir)
-    print(config)
     utilities.sed_inplace(path.join(lektor_temp_dir, "aplet.lektorproject"), r'<<PROJECT>>', config["project_name"])
 
-    # TODO: don't hardcode product names
     products = [path.splitext(product_path)[0] for product_path in listdir(configs_path)]
     for product in products:
         #cp eclipse/configs/$PRODUCT.config $APP_DIR/todo.config

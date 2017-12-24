@@ -80,14 +80,15 @@ def parse_test_results(reports_dir):
         root = tree.getroot()
         acceptance_suite = root.find('testsuite')
 
-        for testcase in acceptance_suite:
-            scenario_name = testcase.get("feature")
-            passed = True
-            if testcase.find("failure") is not None:
-                passed = False
-            if scenario_name not in pl_test_results:
-                pl_test_results[scenario_name] = True
-            pl_test_results[scenario_name] = pl_test_results[scenario_name] and passed
+        if acceptance_suite is not None:
+            for testcase in acceptance_suite:
+                scenario_name = testcase.get("feature")
+                passed = True
+                if testcase.find("failure") is not None:
+                    passed = False
+                if scenario_name not in pl_test_results:
+                    pl_test_results[scenario_name] = True
+                pl_test_results[scenario_name] = pl_test_results[scenario_name] and passed
 
     return pl_test_results
 
