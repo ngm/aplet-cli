@@ -8,10 +8,8 @@ import hashlib
 import pprint
 
 gherkin_parser = Parser()
-tags = {}
 
-
-def parse_feature(feature, parent, graph, test_results, product_features):
+def parse_feature(feature, parent, graph, test_results, product_features, tags):
     feature_name = feature.get("name")
     feature_is_abstract = feature.get("abstract") is not None
 
@@ -22,7 +20,7 @@ def parse_feature(feature, parent, graph, test_results, product_features):
         return has_failed_test and False
 
     for child in feature.getchildren():
-        child_has_failed = parse_feature(child, feature, graph, test_results, product_features)
+        child_has_failed = parse_feature(child, feature, graph, test_results, product_features, tags)
         has_failed_test = has_failed_test or child_has_failed
 
     # add gherkin nodes
@@ -72,7 +70,8 @@ def parse_feature(feature, parent, graph, test_results, product_features):
 
     return has_failed_test
 
-def parse_feature_model(model_xml_file, features_dir, reports_dir, productconfig, output_dir, output_filename):
+def parse_tags_from_feature_files(features_dir):
+    tags = {}
     for feature_file in listdir(features_dir):
         feature_file = open(path.join(features_dir, feature_file), "r")
         feature_parsed = gherkin_parser.parse(feature_file.read())
@@ -90,9 +89,11 @@ def parse_feature_model(model_xml_file, features_dir, reports_dir, productconfig
                     tags[tag_name] = []
                 tags[tag_name].append("S: " + scenario['name'])
 
-    # Parse tests results
-    # For all product reports, go through results
-    # If there's a failure in any product for a given feature, that's a failure for the PL.
+    return tags
+
+# For all product reports, go through results
+# If there's a failure in any product for a given feature, that's a failure for the PL.
+def parse_test_results(reports_dir):
     pl_test_results = {}
     xml_files = [file for file in listdir(reports_dir) if file.endswith(".xml")]
     for test_results_file in xml_files:
@@ -110,6 +111,29 @@ def parse_feature_model(model_xml_file, features_dir, reports_dir, productconfig
                 pl_test_results[scenario_name] = True
             pl_test_results[scenario_name] = pl_test_results[scenario_name] and passed
 
+    return pl_test_results
+
+
+def parse_product_features(productconfig):
+    product_features = []
+
+    if productconfig is not "all":
+        if not path.exists(productconfig):
+            raise IOError("File {0} does not exist".format(productconfig))
+        # features = features filtered by product config
+        with open(productconfig) as product_config_file:
+            for config_option in product_config_file:
+                product_features.append(config_option.strip())
+
+        product_features.append("todoapp")
+
+    return product_features
+
+
+def parse_feature_model(model_xml_file, features_dir, reports_dir, productconfig, output_dir, output_filename):
+    tags = parse_tags_from_feature_files(features_dir)
+    pl_test_results = parse_test_results(reports_dir)
+    product_features = parse_product_features(productconfig)
 
     # Parse feature model
     tree = et.parse(model_xml_file)
@@ -117,22 +141,8 @@ def parse_feature_model(model_xml_file, features_dir, reports_dir, productconfig
     features_root = root.find('struct')
     graph = gv.Digraph(format="svg")
 
-
-    # prefilter by features for product if we have a product flag
-    product_features = []
-    if productconfig is not "all":
-        if not path.exists(productconfig):
-            raise IOError("File {0} does not exist".format(productconfig))
-        # features = features filtered by product config
-        with open(productconfig) as product_config_file:
-            for config_option in product_config_file:
-                print(config_option.strip())
-                product_features.append(config_option.strip())
-
-        product_features.append("todoapp")
-
     for feature in features_root.getchildren():
-        parse_feature(feature, None, graph, pl_test_results, product_features)
+        parse_feature(feature, None, graph, pl_test_results, product_features, tags)
 
     graph.render(filename=path.join(output_dir, output_filename))
 
