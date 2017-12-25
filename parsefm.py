@@ -48,6 +48,30 @@ def get_node_props(node_type=NodeType.fmfeature, node_concrete=True, node_test_s
     return NodeProps(fillcolor=fillcolor, linecolor=linecolor, shape=shape, style=style)
 
 
+def find_optional_features_rec(node):
+    optionals = []
+
+    for child in list(node):
+        optionals.extend(find_optional_features_rec(child))
+
+    mandatory = node.get("mandatory")
+    abstract = node.get("abstract")
+
+    if mandatory is None or mandatory == "false":
+        if abstract is None or abstract == "false":
+            optionals.extend([node.get("name")])
+
+    return optionals
+
+# non-mandatory, concrete features
+def find_optional_features(featuremodel_filepath):
+    tree = et.parse(featuremodel_filepath)
+    root = tree.getroot()
+    features_root = list(root.find('struct'))[0]
+
+    return find_optional_features_rec(features_root)
+
+
 def parse_tags_from_feature_files(features_dir):
     tags = {}
     for feature_file in listdir(features_dir):

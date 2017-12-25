@@ -72,12 +72,11 @@ def runtests(projectfolder, product, app_dir):
 
     feature_toggles = []
     with open(product_config_file_path, "r") as product_config_file:
-        features = product_config_file.readlines()
-        feature_toggles = [feature.strip() for feature in features]
-
-        # TODO: add not toggles
-        #not_feature_toggles = [" -g Not" + feature.strip() for feature in features]
-        #export NOTFEATURES=$(comm -13 <(sort eclipse/configs/$PRODUCT.config) <(sort eclipse/configs/optionals.config) | sed 's?\(.*\)?-g Not\1 ?' | tr -d '\r\n')
+        product_features = product_config_file.readlines()
+        feature_toggles = [feature.strip() for feature in product_features]
+        optionals = parsefm.find_optional_features(featuremodel_path)
+        not_features = ["Not" + feature for feature in set(optionals) - set(product_features)]
+        feature_toggles.extend(not_features)
 
     test_runner_conf = config['test_runner']
     click.echo("Running tests with {0}".format(test_runner_conf['name']))
@@ -92,6 +91,13 @@ def runtests(projectfolder, product, app_dir):
 
     click.echo("Running command" + subprocess.list2cmdline(cmd_list))
     subprocess.call(cmd_list)
+
+    #python3 scripts/product_has_failed.py tests/_output/reports/ $PRODUCT
+    #if [ $? -eq 0 ]; then
+    #    sed -i "s/<<PASS_STATUS>>/true/g" build/lektor/content/products/$PRODUCT/contents.lr;
+    #else
+    #    sed -i "s/<<PASS_STATUS>>/false/g" build/lektor/content/products/$PRODUCT/contents.lr;
+    #fi
 
     # copying report file for product
     shutil.copyfile("tests/_output/report.json", path.join("..", testreports_path, "report" + product + ".json"))
