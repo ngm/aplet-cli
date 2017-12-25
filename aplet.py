@@ -18,8 +18,10 @@ def load_config(filename):
 
 
 @click.group()
-def aplet():
-    load_config("aplet.yml")
+@click.option("--configfile", default="./aplet.yml")
+def aplet(configfile):
+    if path.exists(configfile):
+        load_config("aplet.yml")
     pass
 
 @aplet.command()
@@ -47,6 +49,8 @@ def init(projectfolder):
 
     if not path.exists(testreports_path):
         makedirs(testreports_path)
+
+    shutil.copyfile("templates/aplet.yml", path.join(projectfolder, "aplet.yml"))
 
 
 @aplet.command()
