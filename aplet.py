@@ -50,7 +50,15 @@ def init(projectfolder):
     if not path.exists(testreports_path):
         makedirs(testreports_path)
 
+
+    # copy template config file
     shutil.copyfile("templates/aplet.yml", path.join(projectfolder, "aplet.yml"))
+
+    # copy docs templates from aplet application into projectfolder
+    lektor_templates_path = path.join(projectfolder, "doc_templates")
+    if not path.exists(lektor_templates_path):
+        shutil.copytree("templates/lektor", lektor_templates_path)
+
 
 
 @aplet.command()
@@ -116,59 +124,36 @@ def makedocs(projectfolder, runtests):
     bddfeatures_path = path.join(projectfolder, "bddfeatures")
     testreports_path = path.join(projectfolder, "testreports")
 
-    docs_dir = path.join(projectfolder, "docs")
+    docs_dir = path.join(projectfolder, "docs/generated")
     if not path.exists(docs_dir):
         makedirs(docs_dir)
 
-    lektor_temp_dir = path.join(docs_dir, "lektor")
-    if not path.exists(lektor_temp_dir):
-        shutil.copytree("templates/lektor", lektor_temp_dir)
-    utilities.sed_inplace(path.join(lektor_temp_dir, "aplet.lektorproject"), r'<<PROJECT>>', config["project_name"])
+    lektor_templates_path = "doc_templates"
+    utilities.sed_inplace(path.join(lektor_templates_path, "aplet.lektorproject"), r'<<PROJECT>>', config["project_name"])
 
     products = [path.splitext(product_path)[0] for product_path in listdir(configs_path)]
     for product in products:
-        #cp eclipse/configs/$PRODUCT.config $APP_DIR/todo.config
-        #export FEATURES=$(sed 's?\(.*\)?-g \1 ?' eclipse/configs/$PRODUCT.config | tr -d '\r\n')
-        #export NOTFEATURES=$(comm -13 <(sort eclipse/configs/$PRODUCT.config) <(sort eclipse/configs/optionals.config) | sed 's?\(.*\)?-g Not\1 ?' | tr -d '\r\n')
-
-        if runtests:
-            click.echo("Running tests")
-            #php vendor/bin/codecept run acceptance $FEATURES $NOTFEATURES --debug --json --html --xml
-            # copying report file for product
-            #cp tests/_output/report.json tests/_output/reports/report$PRODUCT.json
-            #cp tests/_output/report.xml tests/_output/reports/report$PRODUCT.xml
-            #cp tests/_output/report.html tests/_output/reports/report$PRODUCT.html
-
-        current_product_lektor_dir = path.join(lektor_temp_dir, "content/products", product)
+        current_product_lektor_dir = path.join(lektor_templates_path, "content/products", product)
         if not path.exists(current_product_lektor_dir):
             makedirs(current_product_lektor_dir)
 
         product_filepath = path.join(current_product_lektor_dir,"contents.lr")
-        shutil.copyfile("templates/lektor/helpers/product_contents.lr", product_filepath)
+        shutil.copyfile(path.join(lektor_templates_path, "helpers/product_contents.lr"), product_filepath)
 
         utilities.sed_inplace(product_filepath, r'<<PRODUCT>>', product)
 
-        if runtests:
-            click.echo("Running tests")
-            #cp tests/_output/report.html build/lektor/content/products/$PRODUCT/report$PRODUCT.html
-
-        #python3 scripts/product_has_failed.py tests/_output/reports/ $PRODUCT
-        #if [ $? -eq 0 ]; then
-        #    sed -i "s/<<PASS_STATUS>>/true/g" build/lektor/content/products/$PRODUCT/contents.lr;
-        #else
-        #    sed -i "s/<<PASS_STATUS>>/false/g" build/lektor/content/products/$PRODUCT/contents.lr;
-        #fi
         product_config_file = path.join(projectfolder, "productline/configs", product + ".config")
 
         parsefm.parse_feature_model(featuremodel_path, bddfeatures_path, testreports_path, product_config_file, current_product_lektor_dir, "feature_model")
 
     click.echo("- Generating feature model SVG...")
     click.echo(featuremodel_path)
-    parsefm.parse_feature_model(featuremodel_path, bddfeatures_path, testreports_path, "all", path.join(lektor_temp_dir, "content/"), "feature_model")
+    parsefm.parse_feature_model(featuremodel_path, bddfeatures_path, testreports_path, "all", path.join(lektor_templates_path, "content/"), "feature_model")
 
     click.echo("- Building site")
-    chdir(lektor_temp_dir)
-    subprocess.call(["lektor", "build", "-O" "out"]) 
+    lektor_cmd = ["lektor", "--project", lektor_templates_path, "build", "-O", path.abspath(docs_dir)]
+    click.echo("Running: " + subprocess.list2cmdline(lektor_cmd))
+    subprocess.call(lektor_cmd) 
 
 
 if __name__ == '__main__':
