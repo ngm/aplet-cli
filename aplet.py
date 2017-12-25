@@ -19,8 +19,12 @@ def load_config(filename):
 
 @click.group()
 def aplet():
+    load_config("aplet.yml")
     pass
 
+@aplet.command()
+def showconfig():
+    print(yaml.dump(config))
 
 @aplet.command()
 @click.option("--projectfolder", default=".", help="Location to output the aplet files")
@@ -71,13 +75,18 @@ def runtests(projectfolder, product, app_dir):
         #not_feature_toggles = [" -g Not" + feature.strip() for feature in features]
         #export NOTFEATURES=$(comm -13 <(sort eclipse/configs/$PRODUCT.config) <(sort eclipse/configs/optionals.config) | sed 's?\(.*\)?-g Not\1 ?' | tr -d '\r\n')
 
-    click.echo("Running tests")
+    test_runner_conf = config['test_runner']
+    click.echo("Running tests with {0}".format(test_runner_conf['name']))
+
     chdir(projectfolder)
-    cmd_list = ["php", "vendor/bin/codecept", "run", "acceptance", "--debug", "--json", "--html", "--xml"]
+    cmd_list = [test_runner_conf['command']]
+    cmd_list.extend(test_runner_conf['arguments'])
+
     for feature_toggle in feature_toggles:
-        cmd_list.append("-g")
+        cmd_list.append(test_runner_conf['feature_include_switch'])
         cmd_list.append(feature_toggle)
 
+    click.echo("Running command" + subprocess.list2cmdline(cmd_list))
     subprocess.call(cmd_list)
 
     # copying report file for product
@@ -155,4 +164,3 @@ def makedocs(projectfolder, runtests):
 if __name__ == '__main__':
     load_config("aplet.yml")
     aplet()
-

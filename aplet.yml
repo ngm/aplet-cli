@@ -1,1 +1,12 @@
 project_name: "Example Product Line"
+test_runner:
+  name: codeception
+  command: "./vendor/bin/codecept"
+  arguments:
+      - run
+      - acceptance
+      - --debug
+      - --json
+      - --html
+      - --xml
+  feature_include_switch: "-g"
