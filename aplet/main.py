@@ -88,7 +88,7 @@ def runtests(projectfolder, product, app_dir):
 
     feature_toggles = []
     with open(product_config_file_path, "r") as product_config_file:
-        product_features = product_config_file.readlines()
+        product_features = [feature.strip() for feature in product_config_file.readlines()]
         feature_toggles = [feature.strip() for feature in product_features]
         optionals = parsefm.find_optional_features(featuremodel_path)
         not_features = ["Not" + feature for feature in set(optionals) - set(product_features)]
