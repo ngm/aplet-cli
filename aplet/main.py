@@ -1,5 +1,6 @@
 from aplet import parsefm
 from aplet import utilities
+from aplet.utilities import TestState
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 from os import listdir, path, makedirs, chdir
 import click
@@ -107,17 +108,10 @@ def runtests(projectfolder, product, app_dir):
     click.echo("Running command" + subprocess.list2cmdline(cmd_list))
     subprocess.call(cmd_list)
 
-    #python3 scripts/product_has_failed.py tests/_output/reports/ $PRODUCT
-    #if [ $? -eq 0 ]; then
-    #    sed -i "s/<<PASS_STATUS>>/true/g" build/lektor/content/products/$PRODUCT/contents.lr;
-    #else
-    #    sed -i "s/<<PASS_STATUS>>/false/g" build/lektor/content/products/$PRODUCT/contents.lr;
-    #fi
-
     # copying report file for product
-    shutil.copyfile("tests/_output/report.json", path.join("..", testreports_path, "report" + product + ".json"))
-    shutil.copyfile("tests/_output/report.html", path.join("..", testreports_path, "report" + product + ".html"))
-    shutil.copyfile("tests/_output/report.xml", path.join("..", testreports_path, "report" + product + ".xml"))
+    shutil.copyfile("tests/_output/report.json", path.join(testreports_path, "report" + product + ".json"))
+    shutil.copyfile("tests/_output/report.html", path.join(testreports_path, "report" + product + ".html"))
+    shutil.copyfile("tests/_output/report.xml", path.join(testreports_path, "report" + product + ".xml"))
 
     chdir("..")
 
@@ -179,8 +173,14 @@ def makedocs(projectfolder, runtests):
         shutil.copyfile(path.join(lektor_templates_path, "helpers/product_contents.lr"), product_filepath)
 
         utilities.sed_inplace(product_filepath, r'<<PRODUCT>>', product_name)
+        product_test_status = parsefm.product_test_status(testreports_path, product_name)
+        utilities.sed_inplace(product_filepath, "<<TEST_STATUS>>", product_test_status.name)
+
 
         parsefm.parse_feature_model(featuremodel_path, bddfeatures_path, testreports_path, productconfig_filepath, current_product_lektor_dir, "feature_model")
+
+        product_report_name = "report{0}.html".format(product_name)
+        shutil.copyfile(path.join(testreports_path, product_report_name), path.join(current_product_lektor_dir, product_report_name))
 
     click.echo("- Generating feature model SVG...")
     click.echo(featuremodel_path)
@@ -199,4 +199,4 @@ def makedocs(projectfolder, runtests):
 
 if __name__ == '__main__':
     load_config("aplet.yml")
-    aplet()
+    cli()

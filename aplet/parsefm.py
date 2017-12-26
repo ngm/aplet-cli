@@ -1,5 +1,6 @@
-from enum import Enum
+from aplet.utilities import TestState, NodeType
 from collections import namedtuple
+from enum import Enum
 from gherkin3.parser import Parser
 from os import listdir, path, makedirs
 import graphviz as gv
@@ -11,15 +12,6 @@ import xml.etree.ElementTree as et
 
 gherkin_parser = Parser()
 NodeProps = namedtuple("NodeProps", "fillcolor linecolor shape style")
-
-class NodeType(Enum):
-    fmfeature = 1,
-    gherkin_piece = 2
-
-class TestState(Enum):
-    inconclusive = 1,
-    failed = 2,
-    passed = 3
 
 def get_node_props(node_type=NodeType.fmfeature, node_concrete=True, node_test_state=TestState.inconclusive):
     shape = None
@@ -242,6 +234,24 @@ def parse_feature(feature, parent, graph, test_results, product_features, gherki
         graph.edge(parent_name, feature_name, arrowhead=arrowhead)
 
     return has_failed_test
+
+
+def product_test_status(reports_dir, productname):
+    # Parse tests results
+    # For all product reports, go through results
+    # If there's a failure in any product for a given feature, that's a failure for the PL.
+    file_path = path.join(reports_dir, "report" + productname + ".xml")
+    tree = et.parse(file_path)
+    root = tree.getroot()
+    acceptance_suite = root.find('testsuite')
+
+    test_state = TestState.inconclusive
+    for testcase in acceptance_suite:
+        test_state = TestState.passed
+        if testcase.find("failure") is not None:
+            test_state = TestState.failed
+
+    return test_state
 
 
 

@@ -1,4 +1,14 @@
+from enum import Enum
 import re, shutil, tempfile
+
+class NodeType(Enum):
+    fmfeature = 1,
+    gherkin_piece = 2
+
+class TestState(Enum):
+    inconclusive = 1,
+    failed = 2,
+    passed = 3
 
 def sed_inplace(filename, pattern, repl):
     '''
