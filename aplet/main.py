@@ -1,11 +1,13 @@
 from aplet import parsefm
 from aplet import utilities
+from http.server import SimpleHTTPRequestHandler, HTTPServer
 from os import listdir, path, makedirs, chdir
 import click
 import pkg_resources
 import shutil
 import subprocess
 import yaml
+
 
 config = {}
 
@@ -130,6 +132,17 @@ def get_product_map(products):
     html += "<table>"
 
     return html
+
+@cli.command()
+@click.option("--docsfolder", default="./docs/generated")
+@click.option("--port", default=9000)
+def servedocs(docsfolder, port):
+    chdir(docsfolder)
+    server_address = ('localhost', port)
+    httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
+
+    click.echo("Serving at port {0}".format(port))
+    httpd.serve_forever()
 
 
 @cli.command()
