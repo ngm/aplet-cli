@@ -250,6 +250,7 @@ def product_test_status(reports_dir, productname):
         test_state = TestState.passed
         if testcase.find("failure") is not None:
             test_state = TestState.failed
+            break
 
     return test_state
 
