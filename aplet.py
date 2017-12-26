@@ -115,6 +115,18 @@ def runtests(projectfolder, product, app_dir):
     chdir("..")
 
 
+def get_product_map(products):
+    html = "<table>"
+    for product_name, product in products.items():
+        html += "<tr><td>"
+        html += product_name
+        html += "</td></tr>"
+
+    html += "<table>"
+
+    return html
+
+
 @aplet.command()
 @click.option("--projectfolder", default=".", help="Location to output the aplet files")
 @click.option("--runtests/--no-runtests", default=False)
@@ -125,26 +137,32 @@ def makedocs(projectfolder, runtests):
     testreports_path = path.join(projectfolder, "testreports")
 
     docs_dir = path.join(projectfolder, "docs/generated")
-    if not path.exists(docs_dir):
-        makedirs(docs_dir)
+    if path.exists(docs_dir):
+        shutil.rmtree(docs_dir)
+    makedirs(docs_dir)
 
     lektor_templates_path = "doc_templates"
     utilities.sed_inplace(path.join(lektor_templates_path, "aplet.lektorproject"), r'<<PROJECT>>', config["project_name"])
 
-    products = [path.splitext(product_path)[0] for product_path in listdir(configs_path)]
-    for product in products:
-        current_product_lektor_dir = path.join(lektor_templates_path, "content/products", product)
+    products = {}
+    product_names = [path.splitext(product_path)[0] for product_path in listdir(configs_path)]
+    for product_name in product_names:
+        productconfig_filepath = path.join(projectfolder, "productline/configs", product_name + ".config")
+
+        with open(productconfig_filepath, "r") as productconfig_file:
+            products[product_name] = {}
+            products[product_name]['features'] = [feature.strip() for feature in productconfig_file.readlines()]
+
+        current_product_lektor_dir = path.join(lektor_templates_path, "content/products", product_name)
         if not path.exists(current_product_lektor_dir):
             makedirs(current_product_lektor_dir)
 
         product_filepath = path.join(current_product_lektor_dir,"contents.lr")
         shutil.copyfile(path.join(lektor_templates_path, "helpers/product_contents.lr"), product_filepath)
 
-        utilities.sed_inplace(product_filepath, r'<<PRODUCT>>', product)
+        utilities.sed_inplace(product_filepath, r'<<PRODUCT>>', product_name)
 
-        product_config_file = path.join(projectfolder, "productline/configs", product + ".config")
-
-        parsefm.parse_feature_model(featuremodel_path, bddfeatures_path, testreports_path, product_config_file, current_product_lektor_dir, "feature_model")
+        parsefm.parse_feature_model(featuremodel_path, bddfeatures_path, testreports_path, productconfig_filepath, current_product_lektor_dir, "feature_model")
 
     click.echo("- Generating feature model SVG...")
     click.echo(featuremodel_path)
@@ -154,6 +172,11 @@ def makedocs(projectfolder, runtests):
     lektor_cmd = ["lektor", "--project", lektor_templates_path, "build", "-O", path.abspath(docs_dir)]
     click.echo("Running: " + subprocess.list2cmdline(lektor_cmd))
     subprocess.call(lektor_cmd) 
+
+    productline_generated_filepath = path.join(docs_dir, "index.html")
+    html = parsefm.get_productmap_html(featuremodel_path, products)
+    utilities.sed_inplace(productline_generated_filepath, r'<<PRODUCTMAP>>', html)
+
 
 
 if __name__ == '__main__':

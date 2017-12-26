@@ -71,6 +71,50 @@ def find_optional_features(featuremodel_filepath):
 
     return find_optional_features_rec(features_root)
 
+def get_productmap_html_rec(node, products, depth):
+    html = "<tr>"
+    #parse_feature(feature, None, graph, pl_test_results, product_features, tags)
+    feature_name = node.get("name")
+    html += "<th scope='row' class='text-left' style='width:200px' >" + ("&nbsp;" * depth * 4) + "&rsaquo;&nbsp;" + feature_name + "</th>"
+    for product_name, product in sorted(products.items()):
+        if node.get("abstract") is None:
+            if feature_name in product['features']:
+                html += "<td class='text-center font-weight-bold text-info'>[&plus;]</td>"
+            else:
+                html += "<td class='text-center'>&minus;</td>"
+        else:
+            html += "<td class='text-center'>&nbsp;</td>"
+    html += "</tr>"
+
+    depth += 1
+    for child in list(node):
+        html += get_productmap_html_rec(child, products, depth)
+
+    return html
+
+
+def get_productmap_html(model_xml_filepath, products):
+    with open(model_xml_filepath, "r") as model_xml_file:
+
+        doc = et.parse(model_xml_file)
+        doc_root = doc.getroot()
+        root_feature = list(doc_root.find('struct'))[0]
+
+        html = "<table class='table table-sm'>"
+        html += "<thead>"
+        html += "<tr>"
+        html += "<th scope='row' class='text-left' style='width:200px'>Features</th>"
+        for product_name, product in sorted(products.items()):
+            html += "<th scope='col' class='text-center' style='max-width:100px'>" + product_name + "</th>"
+        html += "</tr>"
+        html += "</thead>"
+        html += "<tbody>"
+        html += get_productmap_html_rec(root_feature, products, depth=0)
+        html += "</tbody>"
+        html += "</table>"
+
+    return html
+
 
 def parse_tags_from_feature_files(features_dir):
     tags = {}
