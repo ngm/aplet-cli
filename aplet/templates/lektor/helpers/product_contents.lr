@@ -1,0 +1,7 @@
+_model: product
+---
+title: <<PRODUCT>>
+---
+pass_status: <<PASS_STATUS>>
+---
+body:

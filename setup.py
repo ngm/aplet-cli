@@ -1,9 +1,10 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='aplet',
     version='0.1',
-    py_modules=['aplet'],
+    packages=find_packages(),
+    include_package_data=True,
     install_requires=[
         'Click',
         'gherkin3',
@@ -12,6 +13,6 @@ setup(
     ],
     entry_points='''
         [console_scripts]
-        aplet=aplet:aplet
+        aplet=aplet.main:cli
     ''',
 )

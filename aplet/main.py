@@ -1,9 +1,10 @@
+from aplet import parsefm
+from aplet import utilities
 from os import listdir, path, makedirs, chdir
 import click
-import parsefm
+import pkg_resources
 import shutil
 import subprocess
-import utilities
 import yaml
 
 config = {}
@@ -19,16 +20,16 @@ def load_config(filename):
 
 @click.group()
 @click.option("--configfile", default="./aplet.yml")
-def aplet(configfile):
+def cli(configfile):
     if path.exists(configfile):
         load_config("aplet.yml")
     pass
 
-@aplet.command()
+@cli.command()
 def showconfig():
     print(yaml.dump(config))
 
-@aplet.command()
+@cli.command()
 @click.option("--projectfolder", default=".", help="Location to output the aplet files")
 def init(projectfolder):
     productline_dir = path.join(projectfolder, "productline")
@@ -38,11 +39,13 @@ def init(projectfolder):
 
     if not path.exists(productline_dir):
         makedirs(productline_dir)
-    shutil.copyfile("templates/model.xml", path.join(productline_dir, "model.xml"))
+    model_filepath = pkg_resources.resource_filename(__name__, 'templates/model.xml')
+    shutil.copyfile(model_filepath, path.join(productline_dir, "model.xml"))
 
     if not path.exists(configs_path):
         makedirs(configs_path)
-    shutil.copyfile("templates/ExampleProduct.config", path.join(configs_path, "ExampleProduct.config"))
+    exampleconfig_filepath = pkg_resources.resource_filename(__name__, 'templates/ExampleProduct.config')
+    shutil.copyfile(exampleconfig_filepath, path.join(configs_path, "ExampleProduct.config"))
 
     if not path.exists(bddfeatures_path):
         makedirs(bddfeatures_path)
@@ -52,16 +55,18 @@ def init(projectfolder):
 
 
     # copy template config file
-    shutil.copyfile("templates/aplet.yml", path.join(projectfolder, "aplet.yml"))
+    configtemplate_filepath = pkg_resources.resource_filename(__name__, 'templates/aplet.yml')
+    shutil.copyfile(configtemplate_filepath, path.join(projectfolder, "aplet.yml"))
 
     # copy docs templates from aplet application into projectfolder
-    lektor_templates_path = path.join(projectfolder, "doc_templates")
-    if not path.exists(lektor_templates_path):
-        shutil.copytree("templates/lektor", lektor_templates_path)
+    lektortemplates_path = pkg_resources.resource_filename(__name__, 'templates/lektor')
+    doc_templates_path = path.join(projectfolder, "doc_templates")
+    if not path.exists(doc_templates_path):
+        shutil.copytree(lektortemplates_path, doc_templates_path)
 
 
 
-@aplet.command()
+@cli.command()
 @click.option("--projectfolder", default=".", help="Location to output the aplet files")
 @click.argument("product")
 @click.argument("app_dir")
@@ -127,7 +132,7 @@ def get_product_map(products):
     return html
 
 
-@aplet.command()
+@cli.command()
 @click.option("--projectfolder", default=".", help="Location to output the aplet files")
 @click.option("--runtests/--no-runtests", default=False)
 def makedocs(projectfolder, runtests):

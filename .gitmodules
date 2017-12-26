@@ -1,3 +1,3 @@
-[submodule "templates/lektor"]
-	path = templates/lektor
+[submodule "aplet/templates/lektor"]
+	path = aplet/templates/lektor
 	url = https://github.com/ngm/aplet-lektor
