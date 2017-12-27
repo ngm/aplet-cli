@@ -16,6 +16,10 @@ NodeProps = namedtuple("NodeProps", "fillcolor linecolor shape style")
 class FeatureTreeRenderer:
     """ Generates a graphviz image for a feature model and product line test results. """
 
+    def __init__(self):
+        self.graph = gv.Digraph()
+
+
     def get_node_props(self, node_type=NodeType.fmfeature, node_concrete=True, node_test_state=TestState.inconclusive):
         """ Get a node's graphviz display properties based on it's feature model properties.
         """
@@ -47,7 +51,7 @@ class FeatureTreeRenderer:
 
     # TODO: this could do with some refactoring.
     def generate_graphviz_for_node_rec(self,
-                                       feature, parent, graph,
+                                       feature, parent,
                                        test_results, product_features, gherkin_pieces):
         """ For a feature node, recursively add to the graphviz graph for the node and its
         children.
@@ -61,38 +65,39 @@ class FeatureTreeRenderer:
 
         # if working on a specific product, skip processing for nodes not in that product's config
         if product_features and feature_name not in product_features and not feature_is_abstract:
-            return has_failed_test and False
+           return has_failed_test and False #TODO: this will always be false?
 
         # recursively parse the children
         for child in feature.getchildren():
             child_has_failed = self.generate_graphviz_for_node_rec(
-                child, feature, graph, test_results, product_features, gherkin_pieces)
+                child, feature, test_results, product_features, gherkin_pieces)
             has_failed_test = has_failed_test or child_has_failed
 
         # add gherkin nodes
         if feature_name in gherkin_pieces:
             gherkin_pieces_for_feature = gherkin_pieces[feature_name]
-            with graph.subgraph(name="cluster_" + feature_name) as subgraph:
-                feature_name_hash = hashlib.sha256(feature_name.encode('utf-8')).hexdigest()
-                subgraph_root_name = "cluster_" + feature_name_hash
-                subgraph.node(subgraph_root_name, label="", shape="none",
-                            width="0", height="0", style="invis")
-                graph.edge(feature_name, subgraph_root_name)
-                subgraph.attr(rankdir="TB")
-                previous = subgraph_root_name
-                for piece_name in gherkin_pieces_for_feature:
-                    piece_hash = hashlib.sha256(piece_name.encode('utf-8')).hexdigest()
-                    node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.inconclusive)
-                    if piece_name[3:] in test_results:
-                        if test_results[piece_name[3:]] is True:
-                            node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.passed)
-                        elif test_results[piece_name[3:]] is False:
-                            node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.failed)
-                            has_failed_test = True
-                    subgraph.node(piece_hash, piece_name, color=node_props.linecolor,
-                                  fillcolor=node_props.fillcolor, shape=node_props.shape)
-                    subgraph.edge(previous, piece_hash, style="invis", weight="0")
-                    previous = piece_hash
+            subgraph = gv.Digraph(name="cluster_" + feature_name)
+            feature_name_hash = hashlib.sha256(feature_name.encode('utf-8')).hexdigest()
+            subgraph_root_name = "cluster_" + feature_name_hash
+            subgraph.node(subgraph_root_name, label="", shape="none",
+                        width="0", height="0", style="invis")
+            self.graph.edge(feature_name, subgraph_root_name)
+            subgraph.attr(rankdir="TB")
+            previous = subgraph_root_name
+            for piece_name in gherkin_pieces_for_feature:
+                piece_hash = hashlib.sha256(piece_name.encode('utf-8')).hexdigest()
+                node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.inconclusive)
+                if piece_name[3:] in test_results:
+                    if test_results[piece_name[3:]] is True:
+                        node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.passed)
+                    elif test_results[piece_name[3:]] is False:
+                        node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.failed)
+                        has_failed_test = True
+                subgraph.node(piece_hash, piece_name, color=node_props.linecolor,
+                                fillcolor=node_props.fillcolor, shape=node_props.shape)
+                subgraph.edge(previous, piece_hash, style="invis", weight="0")
+                previous = piece_hash
+            self.graph.subgraph(subgraph)
         else:
             node_is_inconclusive = True
 
@@ -108,7 +113,7 @@ class FeatureTreeRenderer:
                 node_props = self.get_node_props(NodeType.fmfeature, True, TestState.failed)
 
         # add fmfeature node
-        graph.node(feature_name, feature_name,
+        self.graph.node(feature_name, feature_name,
                 fillcolor=node_props.fillcolor, style=node_props.style,
                 shape=node_props.shape, color=node_props.linecolor)
 
@@ -118,33 +123,49 @@ class FeatureTreeRenderer:
             arrowhead = "odot"
             if feature.get("mandatory") is not None:
                 arrowhead = "dot"
-            graph.edge(parent_name, feature_name, arrowhead=arrowhead)
+            self.graph.edge(parent_name, feature_name, arrowhead=arrowhead)
 
         return has_failed_test
 
 
-    def generate_feature_tree_diagram(self,
-                                      model_xml_file, features_dir, reports_dir,
-                                      productconfig, output_dir, output_filename):
-        """ Parse through a feature model and produce a graphviz visualisation.
+    def build_graphviz_structure(self, feature_nodes, gherkin_pieces,
+                                 gherkin_piece_test_statuses, product_features):
+        """ Builds the graphviz structure ready for rendering.
         """
-        tags = gherkin_pieces_grouped_by_tag(features_dir)
-        pl_test_results = gherkin_piece_test_statuses(reports_dir)
+        self.graph = gv.Digraph()
+
+        for feature in feature_nodes:
+            self.generate_graphviz_for_node_rec(
+                feature, None, gherkin_piece_test_statuses, product_features, gherkin_pieces)
+
+        return self.graph
+
+
+    def generate_feature_tree_diagram(self,
+                                      model_xml_file, features_dir, reports_dir, productconfig):
+        """ Parse through a feature model and test results and produce a graphviz visualisation.
+        """
+        gherkin_pieces = gherkin_pieces_grouped_by_tag(features_dir)
+        gherkin_piece_test_statuses = get_gherkin_piece_test_statuses(reports_dir)
         product_features = parse_product_features(productconfig)
 
         # Parse feature model
         tree = et.parse(model_xml_file)
         root = tree.getroot()
         features_root = root.find('struct')
-        graph = gv.Digraph(format="svg")
 
-        for feature in features_root.getchildren():
-            self.generate_graphviz_for_node_rec(feature, None, graph, pl_test_results, product_features, tags)
-
-        graph.render(filename=path.join(output_dir, output_filename))
+        self.build_graphviz_structure(list(features_root), gherkin_pieces,
+                                      gherkin_piece_test_statuses, product_features)
 
 
-def gherkin_piece_test_statuses(reports_dir):
+    def render_as_svg(self, output_dir, output_filename):
+        """ Render the built graph as an svg
+        """
+        self.graph.format = "svg"
+        self.graph.render(filename=path.join(output_dir, output_filename))
+
+
+def get_gherkin_piece_test_statuses(reports_dir):
     """ For previously produced test reports for all products in the product
     line, parse through the results. For each scenario that has been run for
     all of the products, check whether it passed or failed.

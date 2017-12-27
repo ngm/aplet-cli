@@ -190,10 +190,8 @@ def makedocs(projectfolder):
         product_test_status = ftrenderer.product_test_status(testreports_path, product_name)
         utilities.sed_inplace(product_filepath, "<<TEST_STATUS>>", product_test_status.name)
 
-
-        feature_tree_renderer.generate_feature_tree_diagram(
-            featuremodel_path, bddfeatures_path, testreports_path,
-            productconfig_filepath, current_product_lektor_dir, "feature_model")
+        feature_tree_renderer.generate_feature_tree_diagram(featuremodel_path, bddfeatures_path, testreports_path, productconfig_filepath)
+        feature_tree_renderer.render_as_svg(current_product_lektor_dir, "feature_model")
 
         # Copy test run html report to generated docs
         product_report_name = "report{0}.html".format(product_name)
@@ -203,9 +201,8 @@ def makedocs(projectfolder):
 
     click.echo("- Generating feature model SVG...")
     click.echo(featuremodel_path)
-    feature_tree_renderer.generate_feature_tree_diagram(
-        featuremodel_path, bddfeatures_path, testreports_path, "all",
-        path.join(lektor_templates_path, "content/"), "feature_model")
+    feature_tree_renderer.generate_feature_tree_diagram(featuremodel_path, bddfeatures_path, testreports_path, "all")
+    feature_tree_renderer.render_as_svg(path.join(lektor_templates_path, "content/"), "feature_model")
 
     click.echo("- Building site")
     lektor_cmd = ["lektor", "--project", lektor_templates_path, "build", "-O", path.abspath(docs_dir)]
