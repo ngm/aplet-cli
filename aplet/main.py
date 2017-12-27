@@ -7,19 +7,11 @@ import click
 import pkg_resources
 import yaml
 
-from aplet import parsefm, utilities
+from aplet import utilities
+from aplet.pltools import ftrenderer, mapbuilder, plutils
+
 
 CONFIG = {}
-
-def load_config(filename):
-    """ Load config file for use later in the application.
-    """
-    with open(filename, "r") as stream:
-        try:
-            global CONFIG
-            CONFIG = yaml.load(stream)
-        except yaml.YAMLError as ex:
-            print(ex)
 
 
 @click.group()
@@ -30,6 +22,17 @@ def cli(configfile):
     if path.exists(configfile):
         load_config("aplet.yml")
     pass
+
+
+def load_config(filename):
+    """ Load config file for use later in the application.
+    """
+    with open(filename, "r") as stream:
+        try:
+            global CONFIG
+            CONFIG = yaml.load(stream)
+        except yaml.YAMLError as ex:
+            print(ex)
 
 
 @cli.command()
@@ -103,7 +106,7 @@ def runtests(projectfolder, product, app_dir):
     with open(product_config_file_path, "r") as product_config_file:
         product_features = [feature.strip() for feature in product_config_file.readlines()]
         feature_toggles = [feature.strip() for feature in product_features]
-        optionals = parsefm.find_optional_features(featuremodel_path)
+        optionals = plutils.find_optional_features(featuremodel_path)
         not_features = ["Not" + feature for feature in set(optionals) - set(product_features)]
         feature_toggles.extend(not_features)
 
@@ -154,6 +157,7 @@ def makedocs(projectfolder):
     configs_path = path.join(projectfolder, "productline", "configs")
     bddfeatures_path = path.join(projectfolder, "bddfeatures")
     testreports_path = path.join(projectfolder, "testreports")
+    feature_tree_renderer = ftrenderer.FeatureTreeRenderer()
 
     docs_dir = path.join(projectfolder, "docs/generated")
     if path.exists(docs_dir):
@@ -183,11 +187,11 @@ def makedocs(projectfolder):
         shutil.copyfile(path.join(lektor_templates_path, "helpers/product_contents.lr"), product_filepath)
 
         utilities.sed_inplace(product_filepath, r'<<PRODUCT>>', product_name)
-        product_test_status = parsefm.product_test_status(testreports_path, product_name)
+        product_test_status = ftrenderer.product_test_status(testreports_path, product_name)
         utilities.sed_inplace(product_filepath, "<<TEST_STATUS>>", product_test_status.name)
 
 
-        parsefm.generate_feature_tree_diagram(
+        feature_tree_renderer.generate_feature_tree_diagram(
             featuremodel_path, bddfeatures_path, testreports_path,
             productconfig_filepath, current_product_lektor_dir, "feature_model")
 
@@ -199,7 +203,7 @@ def makedocs(projectfolder):
 
     click.echo("- Generating feature model SVG...")
     click.echo(featuremodel_path)
-    parsefm.generate_feature_tree_diagram(
+    feature_tree_renderer.generate_feature_tree_diagram(
         featuremodel_path, bddfeatures_path, testreports_path, "all",
         path.join(lektor_templates_path, "content/"), "feature_model")
 
@@ -208,6 +212,7 @@ def makedocs(projectfolder):
     click.echo("Running: " + subprocess.list2cmdline(lektor_cmd))
     subprocess.call(lektor_cmd)
 
+    product_map_renderer = mapbuilder.ProductMapRenderer()
     productline_generated_filepath = path.join(docs_dir, "index.html")
-    html = parsefm.get_productmap_html(featuremodel_path, products)
+    html = product_map_renderer.get_productmap_html(featuremodel_path, products)
     utilities.sed_inplace(productline_generated_filepath, r'<<PRODUCTMAP>>', html)
