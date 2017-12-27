@@ -1,20 +1,27 @@
+import re
+import shutil
+import tempfile
 from enum import Enum
-import re, shutil, tempfile
+
 
 class NodeType(Enum):
-    fmfeature = 1,
+    """ Simple enum for node types. """
+    fmfeature = 1
     gherkin_piece = 2
 
+
 class TestState(Enum):
-    inconclusive = 1,
-    failed = 2,
+    """ Simple enum for test states. """
+    inconclusive = 1
+    failed = 2
     passed = 3
 
+
 def sed_inplace(filename, pattern, repl):
-    '''
-    Perform the pure-Python equivalent of in-place `sed` substitution: e.g.,
+    """ Perform the pure-Python equivalent of in-place `sed` substitution: e.g.,
     `sed -i -e 's/'${pattern}'/'${repl}' "${filename}"`.
-    '''
+    Taken from: https://stackoverflow.com/a/31499114
+    """
     # For efficiency, precompile the passed regular expression.
     pattern_compiled = re.compile(pattern)
 
