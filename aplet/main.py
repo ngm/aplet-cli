@@ -201,7 +201,7 @@ def makedocs(projectfolder):
         feature_tree_renderer.render_as_svg(current_product_lektor_dir, "feature_model")
 
         utilities.sed_inplace(product_filepath, r'<<PRODUCT>>', product_name)
-        product_test_status = ftrenderer.product_test_status(testreports_path, product_name)
+        product_test_status = feature_model.root_feature.test_status
         utilities.sed_inplace(product_filepath, "<<TEST_STATUS>>", product_test_status.name)
 
         # Copy test run html report to generated docs
