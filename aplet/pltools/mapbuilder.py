@@ -2,6 +2,8 @@
 """
 import xml.etree.ElementTree as et
 
+from aplet.pltools.plenums import TestState
+
 class ProductMapRenderer:
     """ Build the product map HTML for a given feature model and product configurations.
     """
@@ -43,13 +45,23 @@ class ProductMapRenderer:
 
         # Whether the feature is enabled for each product.
         for product_name, product in sorted(products.items()):
+            symbol = ""
+            css_classes = ["text-center"]
             if not node.abstract:
                 if node.name in product['features']:
-                    html += "<td class='text-center font-weight-bold text-info'>[&plus;]</td>"
+                    symbol = "[&plus;]"
+                    css_classes.append("font-weight-bold")
+                    if node.test_status is TestState.failed:
+                        css_classes.append("text-danger")
+                    elif node.test_status is TestState.passed:
+                        css_classes.append("text-success")
+                    else:
+                        css_classes.append("text-warning")
                 else:
-                    html += "<td class='text-center'>&minus;</td>"
+                    symbol = "&minus;"
             else:
-                html += "<td class='text-center'>&nbsp;</td>"
+                symbol = "&nbsp;"
+            html += "<td class='{0}'>{1}</td>".format(" ".join(css_classes), symbol)
         html += "</tr>"
 
         depth += 1
