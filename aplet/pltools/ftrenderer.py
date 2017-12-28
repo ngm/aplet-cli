@@ -145,26 +145,6 @@ def get_gherkin_piece_test_statuses(reports_dir):
     return pl_test_results
 
 
-def product_test_status(reports_dir, productname):
-    """ Determine the test status for a given product, based on its test report.
-    If there's a failure for any feature, that's a failure for the entire product.
-    """
-
-    file_path = path.join(reports_dir, "report" + productname + ".xml")
-    tree = et.parse(file_path)
-    root = tree.getroot()
-    acceptance_suite = root.find('testsuite')
-
-    test_state = TestState.inconclusive
-    for testcase in acceptance_suite:
-        test_state = TestState.passed
-        if testcase.find("failure") is not None:
-            test_state = TestState.failed
-            break
-
-    return test_state
-
-
 def gherkin_pieces_grouped_by_featurename(features_dir):
     """ For a list of BDD feature files, discover the parts
     that are tagged with FM feature names (features and scenarios) and group them by the FM feature names.
