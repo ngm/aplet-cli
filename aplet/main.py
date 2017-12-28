@@ -229,5 +229,5 @@ def makedocs(projectfolder):
 
     product_map_renderer = mapbuilder.ProductMapRenderer()
     productline_generated_filepath = path.join(docs_dir, "index.html")
-    html = product_map_renderer.get_productmap_html(featuremodel_path, products)
+    html = product_map_renderer.get_productmap_html(feature_model, products)
     utilities.sed_inplace(productline_generated_filepath, r'<<PRODUCTMAP>>', html)
