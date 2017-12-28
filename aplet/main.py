@@ -8,7 +8,8 @@ import pkg_resources
 import yaml
 
 from aplet import utilities
-from aplet.pltools import ftrenderer, mapbuilder, plutils
+from aplet.pltools import ftrenderer, mapbuilder, plutils, parsers
+from aplet.pltools.parsers import FeatureModel, FeatureModelParser
 
 
 CONFIG = {}
@@ -88,7 +89,7 @@ def init(projectfolder):
 def runtests(projectfolder, product, app_dir):
     """ Runs the tests for a given product.
     Outputs the report files to a folder for later use.
-    TODO: Should be able to run for all tests.
+    TODO: Should be able to run for all products at once.
     """
 
     featuremodel_path = path.join(projectfolder, "productline", "model.xml")
@@ -157,6 +158,8 @@ def makedocs(projectfolder):
     configs_path = path.join(projectfolder, "productline", "configs")
     bddfeatures_path = path.join(projectfolder, "bddfeatures")
     testreports_path = path.join(projectfolder, "testreports")
+
+    fmparser = parsers.FeatureModelParser()
     feature_tree_renderer = ftrenderer.FeatureTreeRenderer()
 
     docs_dir = path.join(projectfolder, "docs/generated")
@@ -186,12 +189,20 @@ def makedocs(projectfolder):
         product_filepath = path.join(current_product_lektor_dir,"contents.lr")
         shutil.copyfile(path.join(lektor_templates_path, "helpers/product_contents.lr"), product_filepath)
 
+        feature_model = fmparser.parse_from_file(featuremodel_path)
+        gherkin_pieces = ftrenderer.gherkin_pieces_grouped_by_featurename(bddfeatures_path)
+        gherkin_piece_test_statuses = ftrenderer.get_gherkin_piece_test_statuses(testreports_path)
+        product_config = ftrenderer.parse_product_features(productconfig_filepath)
+        feature_model.trim_based_on_config(product_config)
+        feature_model.add_gherkin_pieces(gherkin_pieces)
+        feature_model.calculate_test_statuses(gherkin_piece_test_statuses)
+
+        feature_tree_renderer.build_graphviz_graph(feature_model.root_feature)
+        feature_tree_renderer.render_as_svg(current_product_lektor_dir, "feature_model")
+
         utilities.sed_inplace(product_filepath, r'<<PRODUCT>>', product_name)
         product_test_status = ftrenderer.product_test_status(testreports_path, product_name)
         utilities.sed_inplace(product_filepath, "<<TEST_STATUS>>", product_test_status.name)
-
-        feature_tree_renderer.generate_feature_tree_diagram(featuremodel_path, bddfeatures_path, testreports_path, productconfig_filepath)
-        feature_tree_renderer.render_as_svg(current_product_lektor_dir, "feature_model")
 
         # Copy test run html report to generated docs
         product_report_name = "report{0}.html".format(product_name)
@@ -201,7 +212,14 @@ def makedocs(projectfolder):
 
     click.echo("- Generating feature model SVG...")
     click.echo(featuremodel_path)
-    feature_tree_renderer.generate_feature_tree_diagram(featuremodel_path, bddfeatures_path, testreports_path, "all")
+
+    feature_model = fmparser.parse_from_file(featuremodel_path)
+    gherkin_pieces = ftrenderer.gherkin_pieces_grouped_by_featurename(bddfeatures_path)
+    gherkin_piece_test_statuses = ftrenderer.get_gherkin_piece_test_statuses(testreports_path)
+    feature_model.add_gherkin_pieces(gherkin_pieces)
+    feature_model.calculate_test_statuses(gherkin_piece_test_statuses)
+
+    feature_tree_renderer.build_graphviz_graph(feature_model.root_feature)
     feature_tree_renderer.render_as_svg(path.join(lektor_templates_path, "content/"), "feature_model")
 
     click.echo("- Building site")

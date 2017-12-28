@@ -78,6 +78,11 @@ class FeatureModelParser:
     """ Parses a FeatureIDE XML file and returns feature model data structure.
     """
 
+    def parse_from_file(self, filepath):
+        with open(filepath, "r") as file:
+            return self.parse_xml(file.read())
+
+
     def parse_xml(self, xml):
         if not xml:
             raise Exception("XML is empty")

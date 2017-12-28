@@ -105,24 +105,6 @@ class FeatureTreeRenderer:
         return self.graph
 
 
-    def generate_feature_tree_diagram(self,
-                                      model_xml_file, features_dir, reports_dir, productconfig):
-        """ Parse through a feature model and test results and produce a graphviz visualisation.
-        """
-        gherkin_pieces = gherkin_pieces_grouped_by_featurename(features_dir)
-        gherkin_piece_test_statuses = get_gherkin_piece_test_statuses(reports_dir)
-        product_features = parse_product_features(productconfig)
-
-        feature_model = None
-        with open(model_xml_file, "r") as xml_file:
-            fmparser = FeatureModelParser()
-            feature_model = fmparser.parse_xml(xml_file.read())
-
-        if (product_features):
-            feature_model.trim_based_on_config(product_features)
-        feature_model.add_gherkin_pieces(gherkin_pieces)
-        feature_model.calculate_test_statuses(gherkin_piece_test_statuses)
-        self.build_graphviz_graph(feature_model.root_feature)
 
 
     def render_as_svg(self, output_dir, output_filename):
@@ -217,16 +199,14 @@ def parse_product_features(productconfig):
     """
     product_features = []
 
-    # TODO: if it's all we just return an empty list?
-    if productconfig != "all":
-        if not path.exists(productconfig):
-            raise IOError("File {0} does not exist".format(productconfig))
-        # features = features filtered by product config
-        with open(productconfig) as product_config_file:
-            for config_option in product_config_file:
-                product_features.append(config_option.strip())
+    if not path.exists(productconfig):
+        raise IOError("File {0} does not exist".format(productconfig))
+    # features = features filtered by product config
+    with open(productconfig) as product_config_file:
+        for config_option in product_config_file.readlines():
+            product_features.append(config_option.strip())
 
-        # TODO: shouldn't be hardcoding the appending of this.
-        product_features.append("todoapp")
+    # TODO: shouldn't be hardcoding the appending of this.
+    product_features.append("todoapp")
 
     return product_features
