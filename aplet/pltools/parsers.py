@@ -5,11 +5,28 @@ import xml.etree.ElementTree as et
 
 from anytree import Node, RenderTree
 
+from aplet.pltools.plenums import NodeType
+
 
 class FeatureModel:
 
     def __init__(self):
         self.root_feature = None
+
+    def add_gherkin_pieces(self, gherkin_pieces):
+        self.add_gherkin_pieces_rec(self.root_feature, gherkin_pieces) 
+
+    def add_gherkin_pieces_rec(self, feature, gherkin_pieces):
+        feature.gherkin_pieces = []
+        if feature.name in gherkin_pieces:
+            gherkin_pieces_for_feature = gherkin_pieces[feature.name]
+
+            for piece_name in gherkin_pieces_for_feature:
+                piece_node = Node(piece_name, parent=None, node_type=NodeType.gherkin_piece)
+                feature.gherkin_pieces.append(piece_node)
+
+        for child in feature.children:
+            self.add_gherkin_pieces_rec(child, gherkin_pieces)
 
 
 class FeatureModelParser:
@@ -33,6 +50,7 @@ class FeatureModelParser:
 
     def recurse_features(self, xml_feature, parent):
         feature = Node(xml_feature.get("name"), parent=parent)
+        feature.node_type = NodeType.fmfeature
         feature.abstract = bool(xml_feature.get("abstract") == "true")
         feature.mandatory = bool(xml_feature.get("mandatory") == "true")
 

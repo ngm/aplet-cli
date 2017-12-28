@@ -51,9 +51,7 @@ class FeatureTreeRenderer:
 
 
     # TODO: this could do with some refactoring.
-    def generate_graphviz_for_node_rec(self,
-                                       feature, parent,
-                                       test_results, product_features, gherkin_pieces):
+    def generate_graphviz_for_node_rec(self, feature, parent, test_results, product_features):
         """ For a feature node, recursively add to the graphviz graph for the node and its
         children.
         """
@@ -66,8 +64,7 @@ class FeatureTreeRenderer:
 
         # recursively parse the children
         for child in feature.children:
-            child_test_state = self.generate_graphviz_for_node_rec(
-                child, feature, test_results, product_features, gherkin_pieces)
+            child_test_state = self.generate_graphviz_for_node_rec(child, feature, test_results, product_features)
             if child_test_state is TestState.passed:
                 if feature.test_state is None or feature.test_state is TestState.passed:
                     feature.test_state = TestState.passed
@@ -78,8 +75,7 @@ class FeatureTreeRenderer:
                 feature.test_state = TestState.failed
 
         # add gherkin nodes
-        if feature.name in gherkin_pieces:
-            gherkin_pieces_for_feature = gherkin_pieces[feature.name]
+        if feature.gherkin_pieces:
             subgraph = gv.Digraph(name="cluster_" + feature.name)
             feature_name_hash = hashlib.sha256(feature.name.encode('utf-8')).hexdigest()
             subgraph_root_name = "cluster_" + feature_name_hash
@@ -88,17 +84,17 @@ class FeatureTreeRenderer:
             self.graph.edge(feature.name, subgraph_root_name)
             subgraph.attr(rankdir="TB")
             previous = subgraph_root_name
-            for piece_name in gherkin_pieces_for_feature:
-                piece_hash = hashlib.sha256(piece_name.encode('utf-8')).hexdigest()
+            for piece in feature.gherkin_pieces:
+                piece_hash = hashlib.sha256(piece.name.encode('utf-8')).hexdigest()
                 node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.inconclusive)
-                if piece_name[3:] in test_results:
-                    if test_results[piece_name[3:]] is True:
+                if piece.name[3:] in test_results:
+                    if test_results[piece.name[3:]] is True:
                         node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.passed)
                         feature.test_state = TestState.passed
-                    elif test_results[piece_name[3:]] is False:
+                    elif test_results[piece.name[3:]] is False:
                         node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.failed)
                         feature.test_state = TestState.failed
-                subgraph.node(piece_hash, piece_name, color=node_props.linecolor,
+                subgraph.node(piece_hash, piece.name, color=node_props.linecolor,
                                 fillcolor=node_props.fillcolor, shape=node_props.shape)
                 subgraph.edge(previous, piece_hash, style="invis", weight="0")
                 previous = piece_hash
@@ -123,14 +119,13 @@ class FeatureTreeRenderer:
         return feature.test_state
 
 
-    def build_graphviz_graph(self, root_feature, gherkin_pieces,
-                                 gherkin_piece_test_statuses, product_features):
+    def build_graphviz_graph(self, root_feature, gherkin_piece_test_statuses, product_features):
         """ Builds the graphviz structure ready for rendering.
         """
         self.graph = gv.Digraph()
 
         self.generate_graphviz_for_node_rec(root_feature, None, gherkin_piece_test_statuses,
-                                            product_features, gherkin_pieces)
+                                            product_features)
 
         return self.graph
 
@@ -139,7 +134,7 @@ class FeatureTreeRenderer:
                                       model_xml_file, features_dir, reports_dir, productconfig):
         """ Parse through a feature model and test results and produce a graphviz visualisation.
         """
-        gherkin_pieces = gherkin_pieces_grouped_by_tag(features_dir)
+        gherkin_pieces = gherkin_pieces_grouped_by_featurename(features_dir)
         gherkin_piece_test_statuses = get_gherkin_piece_test_statuses(reports_dir)
         product_features = parse_product_features(productconfig)
 
@@ -148,8 +143,8 @@ class FeatureTreeRenderer:
             fmparser = FeatureModelParser()
             feature_model = fmparser.parse_xml(xml_file.read())
 
-        self.build_graphviz_graph(feature_model.root_feature, gherkin_pieces,
-                                      gherkin_piece_test_statuses, product_features)
+        feature_model.add_gherkin_pieces(gherkin_pieces)
+        self.build_graphviz_graph(feature_model.root_feature, gherkin_piece_test_statuses, product_features)
 
 
     def render_as_svg(self, output_dir, output_filename):
@@ -210,9 +205,9 @@ def product_test_status(reports_dir, productname):
     return test_state
 
 
-def gherkin_pieces_grouped_by_tag(features_dir):
+def gherkin_pieces_grouped_by_featurename(features_dir):
     """ For a list of BDD feature files, discover the parts
-    that are tagged (features and scenarios) and group them by the tags.
+    that are tagged with FM feature names (features and scenarios) and group them by the FM feature names.
     """
 
     gherkin_parser = Parser()
