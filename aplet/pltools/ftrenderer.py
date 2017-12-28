@@ -128,7 +128,7 @@ class FeatureTreeRenderer:
         return has_failed_test
 
 
-    def build_graphviz_structure(self, feature_nodes, gherkin_pieces,
+    def build_graphviz_graph(self, feature_nodes, gherkin_pieces,
                                  gherkin_piece_test_statuses, product_features):
         """ Builds the graphviz structure ready for rendering.
         """
@@ -154,7 +154,7 @@ class FeatureTreeRenderer:
         root = tree.getroot()
         features_root = root.find('struct')
 
-        self.build_graphviz_structure(list(features_root), gherkin_pieces,
+        self.build_graphviz_graph(list(features_root), gherkin_pieces,
                                       gherkin_piece_test_statuses, product_features)
 
 

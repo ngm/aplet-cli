@@ -5,6 +5,6 @@ from aplet.pltools.ftrenderer import FeatureTreeRenderer
 
 def test_empty_feature_model():
     renderer = FeatureTreeRenderer()
-    graph = renderer.build_graphviz_structure([], [], [], [])
-    print(graph.source)
+    graphviz_struct = renderer.build_graphviz_graph([], [], [], [])
+    print(graphviz_struct.source)
 
