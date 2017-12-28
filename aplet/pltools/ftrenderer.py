@@ -21,7 +21,7 @@ class FeatureTreeRenderer:
         self.graph = gv.Digraph()
 
 
-    def get_node_props(self, node_type=NodeType.fmfeature, node_concrete=True, node_test_state=TestState.inconclusive):
+    def get_node_props(self, node_type=NodeType.fmfeature, node_abstract=True, node_test_state=TestState.inconclusive):
         """ Get a node's graphviz display properties based on it's feature model properties.
         """
         shape = None
@@ -36,15 +36,15 @@ class FeatureTreeRenderer:
 
         if node_test_state == TestState.inconclusive:
             linecolor = "orange"
-            if not node_concrete:
+            if node_abstract:
                 fillcolor = "orange"
         elif node_test_state == TestState.failed:
             linecolor = "red"
-            if not node_concrete:
+            if node_abstract:
                 fillcolor = "red"
         elif node_test_state == TestState.passed:
             linecolor = "green"
-            if not node_concrete:
+            if node_abstract:
                 fillcolor = "green"
 
         return NodeProps(fillcolor=fillcolor, linecolor=linecolor, shape=shape, style=style)
@@ -58,18 +58,24 @@ class FeatureTreeRenderer:
         children.
         """
 
-        has_failed_test = False
-        node_is_inconclusive = False
+        feature.test_state = None
 
         # if working on a specific product, skip processing for nodes not in that product's config
         if product_features and feature.name not in product_features and not feature.abstract:
-           return has_failed_test and False #TODO: this will always be false?
+            return feature.test_state
 
         # recursively parse the children
         for child in feature.children:
-            child_has_failed = self.generate_graphviz_for_node_rec(
+            child_test_state = self.generate_graphviz_for_node_rec(
                 child, feature, test_results, product_features, gherkin_pieces)
-            has_failed_test = has_failed_test or child_has_failed
+            if child_test_state is TestState.passed:
+                if feature.test_state is None or feature.test_state is TestState.passed:
+                    feature.test_state = TestState.passed
+            if child_test_state is TestState.inconclusive:
+                if feature.test_state is None or feature.test_state is not TestState.failed:
+                    feature.test_state = TestState.inconclusive
+            if child_test_state is TestState.failed:
+                feature.test_state = TestState.failed
 
         # add gherkin nodes
         if feature.name in gherkin_pieces:
@@ -88,27 +94,19 @@ class FeatureTreeRenderer:
                 if piece_name[3:] in test_results:
                     if test_results[piece_name[3:]] is True:
                         node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.passed)
+                        feature.test_state = TestState.passed
                     elif test_results[piece_name[3:]] is False:
                         node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.failed)
-                        has_failed_test = True
+                        feature.test_state = TestState.failed
                 subgraph.node(piece_hash, piece_name, color=node_props.linecolor,
                                 fillcolor=node_props.fillcolor, shape=node_props.shape)
                 subgraph.edge(previous, piece_hash, style="invis", weight="0")
                 previous = piece_hash
             self.graph.subgraph(subgraph)
-        else:
-            node_is_inconclusive = True
 
-
-        node_props = self.get_node_props(NodeType.fmfeature, True, TestState.inconclusive)
-        if feature.abstract:
-            if node_is_inconclusive:
-                node_props = self.get_node_props(NodeType.fmfeature, False, TestState.inconclusive)
-            elif has_failed_test is True:
-                node_props = self.get_node_props(NodeType.fmfeature, False, TestState.failed)
-        else:
-            if has_failed_test is True:
-                node_props = self.get_node_props(NodeType.fmfeature, True, TestState.failed)
+        if feature.test_state is None:
+            feature.test_state = TestState.inconclusive
+        node_props = self.get_node_props(NodeType.fmfeature, feature.abstract, feature.test_state)
 
         # add fmfeature node
         self.graph.node(feature.name, feature.name,
@@ -122,7 +120,7 @@ class FeatureTreeRenderer:
                 arrowhead = "dot"
             self.graph.edge(parent.name, feature.name, arrowhead=arrowhead)
 
-        return has_failed_test
+        return feature.test_state
 
 
     def build_graphviz_graph(self, root_feature, gherkin_pieces,
