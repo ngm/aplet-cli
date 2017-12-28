@@ -10,7 +10,6 @@ from gherkin3.parser import Parser
 import graphviz as gv
 
 from aplet.pltools.plenums import NodeType, TestState
-from aplet.pltools.parsers import FeatureModelParser
 
 NodeProps = namedtuple("NodeProps", "fillcolor linecolor shape style")
 
@@ -32,7 +31,7 @@ class FeatureTreeRenderer:
         if node_type == NodeType.fmfeature:
             shape = "box"
         elif node_type == NodeType.gherkin_piece:
-            shape = "oval"
+            shape = "box"
 
         if node_test_state == TestState.inconclusive:
             linecolor = "#ffa500" # orange
@@ -62,23 +61,22 @@ class FeatureTreeRenderer:
 
         # add gherkin nodes
         if feature.gherkin_pieces:
-            subgraph = gv.Digraph(name="cluster_" + feature.name)
-            feature_name_hash = hashlib.sha256(feature.name.encode('utf-8')).hexdigest()
-            subgraph_root_name = "cluster_" + feature_name_hash
-            subgraph.node(subgraph_root_name, label="", shape="none",
-                          width="0", height="0", style="invis")
-            self.graph.edge(feature.name, subgraph_root_name)
-            subgraph.attr(rankdir="TB")
-            previous = subgraph_root_name
+            label = "<<table border='0'>"
             for piece in feature.gherkin_pieces:
-                piece_hash = hashlib.sha256(piece.name.encode('utf-8')).hexdigest()
-                if piece.test_status:
-                    node_props = self.get_node_props(NodeType.gherkin_piece, True, piece.test_status)
-                subgraph.node(piece_hash, piece.name, color=node_props.linecolor,
-                                fillcolor=node_props.fillcolor, shape=node_props.shape)
-                subgraph.edge(previous, piece_hash, style="invis", weight="0")
-                previous = piece_hash
-            self.graph.subgraph(subgraph)
+                bgcolor = ""
+                if piece.test_status is TestState.passed:
+                    bgcolor = "#ccffcc"
+                elif piece.test_status is TestState.failed:
+                    bgcolor = "#ffcccc"
+                elif piece.test_status is TestState.inconclusive:
+                    bgcolor = "#ffd72f"
+
+                label += "<tr>"
+                label += "<td bgcolor='{0}' border='1' style='rounded'>{1}</td>".format(bgcolor, piece.name)
+                label += "</tr>"
+            label += "</table>>"
+            self.graph.node(feature.name+"_gherkin", label=label, shape="rect")
+            self.graph.edge(feature.name, feature.name+"_gherkin")
 
         node_props = self.get_node_props(NodeType.fmfeature, feature.abstract, feature.test_status)
 
