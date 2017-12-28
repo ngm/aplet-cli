@@ -51,28 +51,14 @@ class FeatureTreeRenderer:
 
 
     # TODO: this could do with some refactoring.
-    def generate_graphviz_for_node_rec(self, feature, parent, test_results, product_features):
+    def generate_graphviz_for_node_rec(self, feature, parent):
         """ For a feature node, recursively add to the graphviz graph for the node and its
         children.
         """
 
-        feature.test_state = None
-
-        # if working on a specific product, skip processing for nodes not in that product's config
-        if product_features and feature.name not in product_features and not feature.abstract:
-            return feature.test_state
-
         # recursively parse the children
         for child in feature.children:
-            child_test_state = self.generate_graphviz_for_node_rec(child, feature, test_results, product_features)
-            if child_test_state is TestState.passed:
-                if feature.test_state is None or feature.test_state is TestState.passed:
-                    feature.test_state = TestState.passed
-            if child_test_state is TestState.inconclusive:
-                if feature.test_state is None or feature.test_state is not TestState.failed:
-                    feature.test_state = TestState.inconclusive
-            if child_test_state is TestState.failed:
-                feature.test_state = TestState.failed
+            self.generate_graphviz_for_node_rec(child, feature)
 
         # add gherkin nodes
         if feature.gherkin_pieces:
@@ -86,23 +72,15 @@ class FeatureTreeRenderer:
             previous = subgraph_root_name
             for piece in feature.gherkin_pieces:
                 piece_hash = hashlib.sha256(piece.name.encode('utf-8')).hexdigest()
-                node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.inconclusive)
-                if piece.name[3:] in test_results:
-                    if test_results[piece.name[3:]] is True:
-                        node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.passed)
-                        feature.test_state = TestState.passed
-                    elif test_results[piece.name[3:]] is False:
-                        node_props = self.get_node_props(NodeType.gherkin_piece, True, TestState.failed)
-                        feature.test_state = TestState.failed
+                if piece.test_status:
+                    node_props = self.get_node_props(NodeType.gherkin_piece, True, piece.test_status)
                 subgraph.node(piece_hash, piece.name, color=node_props.linecolor,
                                 fillcolor=node_props.fillcolor, shape=node_props.shape)
                 subgraph.edge(previous, piece_hash, style="invis", weight="0")
                 previous = piece_hash
             self.graph.subgraph(subgraph)
 
-        if feature.test_state is None:
-            feature.test_state = TestState.inconclusive
-        node_props = self.get_node_props(NodeType.fmfeature, feature.abstract, feature.test_state)
+        node_props = self.get_node_props(NodeType.fmfeature, feature.abstract, feature.test_status)
 
         # add fmfeature node
         self.graph.node(feature.name, feature.name,
@@ -116,16 +94,13 @@ class FeatureTreeRenderer:
                 arrowhead = "dot"
             self.graph.edge(parent.name, feature.name, arrowhead=arrowhead)
 
-        return feature.test_state
 
-
-    def build_graphviz_graph(self, root_feature, gherkin_piece_test_statuses, product_features):
+    def build_graphviz_graph(self, root_feature):
         """ Builds the graphviz structure ready for rendering.
         """
         self.graph = gv.Digraph()
 
-        self.generate_graphviz_for_node_rec(root_feature, None, gherkin_piece_test_statuses,
-                                            product_features)
+        self.generate_graphviz_for_node_rec(root_feature, None)
 
         return self.graph
 
@@ -143,8 +118,11 @@ class FeatureTreeRenderer:
             fmparser = FeatureModelParser()
             feature_model = fmparser.parse_xml(xml_file.read())
 
+        if (product_features):
+            feature_model.trim_based_on_config(product_features)
         feature_model.add_gherkin_pieces(gherkin_pieces)
-        self.build_graphviz_graph(feature_model.root_feature, gherkin_piece_test_statuses, product_features)
+        feature_model.calculate_test_statuses(gherkin_piece_test_statuses)
+        self.build_graphviz_graph(feature_model.root_feature)
 
 
     def render_as_svg(self, output_dir, output_filename):
@@ -221,14 +199,14 @@ def gherkin_pieces_grouped_by_featurename(features_dir):
             tag_name = tag['name'][1:] # remove @
             if tag_name not in pieces_grouped_by_tag:
                 pieces_grouped_by_tag[tag_name] = []
-            pieces_grouped_by_tag[tag_name].append("F: " + feature_parsed['name'])
+            pieces_grouped_by_tag[tag_name].append(feature_parsed['name'])
 
         for scenario in feature_parsed['scenarioDefinitions']:
             for tag in scenario['tags']:
                 tag_name = tag['name'][1:] # remove @
                 if tag_name not in pieces_grouped_by_tag:
                     pieces_grouped_by_tag[tag_name] = []
-                pieces_grouped_by_tag[tag_name].append("S: " + scenario['name'])
+                pieces_grouped_by_tag[tag_name].append(scenario['name'])
 
     return pieces_grouped_by_tag
 
