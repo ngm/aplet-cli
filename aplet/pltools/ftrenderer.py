@@ -35,17 +35,17 @@ class FeatureTreeRenderer:
             shape = "oval"
 
         if node_test_state == TestState.inconclusive:
-            linecolor = "orange"
+            linecolor = "#ffa500" # orange
             if node_abstract:
-                fillcolor = "orange"
+                fillcolor = "#ffd72f"
         elif node_test_state == TestState.failed:
             linecolor = "red"
             if node_abstract:
-                fillcolor = "red"
+                fillcolor = "#ffcccc"
         elif node_test_state == TestState.passed:
             linecolor = "green"
             if node_abstract:
-                fillcolor = "green"
+                fillcolor = "#ccffcc"
 
         return NodeProps(fillcolor=fillcolor, linecolor=linecolor, shape=shape, style=style)
 
