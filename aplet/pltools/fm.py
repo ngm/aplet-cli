@@ -1,3 +1,4 @@
+import copy
 from enum import Enum
 
 from anytree import Node
@@ -70,6 +71,11 @@ class FeatureModel:
 
         return feature.test_status
 
+
+    def get_copy_trimmed_based_on_config(self, configured_features):
+        copy_fm = copy.deepcopy(self)
+        copy_fm.trim_based_on_config(configured_features)
+        return copy_fm
 
     def trim_based_on_config(self, configured_features):
         self.trim_based_on_config_rec(self.root_feature, configured_features)

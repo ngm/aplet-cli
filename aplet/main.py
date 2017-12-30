@@ -96,7 +96,7 @@ def get_feature_toggles_for_testrunner(featuremodel, product_config_file_path):
 
 @cli.command()
 @click.option("--projectfolder", default=".", help="Location to output the aplet files")
-@click.argument("product")
+@click.option("--product", help="If provided, will run for single product.  Otherwise all products are tested")
 @click.argument("app_dir")
 def runtests(projectfolder, product, app_dir):
     """ Runs the tests for a given product.
@@ -114,31 +114,39 @@ def runtests(projectfolder, product, app_dir):
     fmparser = parsers.FeatureModelParser()
     featuremodel = fmparser.parse_from_file(featuremodel_path)
 
-    # TODO: needs some rethinking.  Where should we pick up the running app from?
-    product_config_file_path = path.join(configs_path, product + ".config")
-    shutil.copyfile(product_config_file_path, path.join(app_dir, "todo.config"))
+    product_names = []
+    if product is None:
+        product_names = get_product_names_from_configs_path(configs_path)
+    else:
+        product_names.append(product)
 
-    feature_toggles = get_feature_toggles_for_testrunner(featuremodel, product_config_file_path)
+    for product_name in product_names:
+        productconfig_filepath = path.join(configs_path, product_name + ".config")
+        shutil.copyfile(productconfig_filepath, path.join(app_dir, "todo.config"))
 
-    test_runner_conf = CONFIG['test_runner']
-    click.echo("Running tests with {0}".format(test_runner_conf['name']))
+        product_features = ftrenderer.parse_product_features(productconfig_filepath)
+        trimmed_featuremodel = featuremodel.get_copy_trimmed_based_on_config(product_features)
+        feature_toggles = get_feature_toggles_for_testrunner(trimmed_featuremodel, productconfig_filepath)
 
-    chdir(projectfolder)
-    cmd_list = [test_runner_conf['command']]
-    cmd_list.extend(test_runner_conf['arguments'])
+        test_runner_conf = CONFIG['test_runner']
+        click.echo("Running tests with {0}".format(test_runner_conf['name']))
 
-    for feature_toggle in feature_toggles:
-        cmd_list.append(test_runner_conf['feature_include_switch'])
-        cmd_list.append(feature_toggle)
+        chdir(projectfolder)
+        cmd_list = [test_runner_conf['command']]
+        cmd_list.extend(test_runner_conf['arguments'])
 
-    click.echo("Running command" + subprocess.list2cmdline(cmd_list))
-    subprocess.call(cmd_list)
+        for feature_toggle in feature_toggles:
+            cmd_list.append(test_runner_conf['feature_include_switch'])
+            cmd_list.append(feature_toggle)
 
-    # copying report file for product
-    testreport_path_without_ext = path.join(testreports_path, "report" + product)
-    shutil.copyfile("tests/_output/report.json", path.join(testreport_path_without_ext + ".json"))
-    shutil.copyfile("tests/_output/report.html", path.join(testreport_path_without_ext + ".html"))
-    shutil.copyfile("tests/_output/report.xml", path.join(testreport_path_without_ext + ".xml"))
+        click.echo("Running command" + subprocess.list2cmdline(cmd_list))
+        subprocess.call(cmd_list)
+
+        # copying report file for product
+        testreport_path_without_ext = path.join(testreports_path, "report" + product_name)
+        shutil.copyfile("tests/_output/report.json", path.join(testreport_path_without_ext + ".json"))
+        shutil.copyfile("tests/_output/report.html", path.join(testreport_path_without_ext + ".html"))
+        shutil.copyfile("tests/_output/report.xml", path.join(testreport_path_without_ext + ".xml"))
 
     chdir("..")
 
@@ -155,6 +163,10 @@ def servedocs(docsfolder, port):
 
     click.echo("Serving at port {0}".format(port))
     httpd.serve_forever()
+
+
+def get_product_names_from_configs_path(configs_path):
+    return [path.splitext(product_path)[0] for product_path in listdir(configs_path)]
 
 
 @cli.command()
@@ -183,7 +195,7 @@ def makedocs(projectfolder):
         CONFIG["project_name"])
 
     products = {}
-    product_names = [path.splitext(product_path)[0] for product_path in listdir(configs_path)]
+    product_names = get_product_names_from_configs_path(configs_path)
     for product_name in product_names:
         productconfig_filepath = path.join(projectfolder, "productline/configs", product_name + ".config")
 
