@@ -169,22 +169,3 @@ def gherkin_pieces_grouped_by_featurename(features_dir):
                 pieces_grouped_by_tag[tag_name].append(scenario['name'])
 
     return pieces_grouped_by_tag
-
-
-def parse_product_features(productconfig):
-    """ For a given product configuration file, pull out the list of features
-    it has been configured to have.
-    """
-    product_features = []
-
-    if not path.exists(productconfig):
-        raise IOError("File {0} does not exist".format(productconfig))
-    # features = features filtered by product config
-    with open(productconfig) as product_config_file:
-        for config_option in product_config_file.readlines():
-            product_features.append(config_option.strip())
-
-    # TODO: shouldn't be hardcoding the appending of this.
-    product_features.append("todoapp")
-
-    return product_features

@@ -2,6 +2,7 @@
 """
 
 import xml.etree.ElementTree as et
+from os import path
 
 from anytree import Node, RenderTree
 
@@ -42,3 +43,28 @@ class FeatureModelParser:
             self.recurse_features(xml_child, parent=feature)
 
         return feature
+
+
+
+class ProductConfigParser:
+
+    def __init__(self, root_feature_name):
+        self.root_feature_name = root_feature_name
+
+    def parse_config(self, productconfig):
+        """ For a given product configuration file, pull out the list of features
+        it has been configured to have.
+        """
+        product_features = []
+
+        if not path.exists(productconfig):
+            raise IOError("File {0} does not exist".format(productconfig))
+        # features = features filtered by product config
+        with open(productconfig) as product_config_file:
+            for config_option in product_config_file.readlines():
+                product_features.append(config_option.strip())
+
+        # TODO: shouldn't be hardcoding the appending of this.
+        product_features.append(self.root_feature_name)
+
+        return product_features

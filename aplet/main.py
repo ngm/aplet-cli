@@ -9,7 +9,7 @@ import yaml
 
 from aplet import utilities
 from aplet.pltools import ftrenderer, mapbuilder, parsers
-from aplet.pltools.parsers import FeatureModel, FeatureModelParser
+from aplet.pltools.parsers import FeatureModel, FeatureModelParser, ProductConfigParser
 
 
 CONFIG = {}
@@ -148,6 +148,7 @@ def runtests(projectfolder, product, app_dir):
 
     fmparser = parsers.FeatureModelParser()
     featuremodel = fmparser.parse_from_file(featuremodel_path)
+    configparser = parsers.ProductConfigParser(featuremodel.root_feature.name)
 
     before_productline_steps()
 
@@ -163,7 +164,7 @@ def runtests(projectfolder, product, app_dir):
 
         before_product_steps(productconfig_filepath, app_dir)
 
-        product_features = ftrenderer.parse_product_features(productconfig_filepath)
+        product_features = configparser.parse_config(productconfig_filepath)
         trimmed_featuremodel = featuremodel.get_copy_trimmed_based_on_config(product_features)
         feature_toggles = get_feature_toggles_for_testrunner(trimmed_featuremodel, productconfig_filepath)
 
@@ -255,8 +256,9 @@ def makedocs(projectfolder):
         feature_model = fmparser.parse_from_file(featuremodel_path)
         gherkin_pieces = ftrenderer.gherkin_pieces_grouped_by_featurename(bddfeatures_path)
         gherkin_piece_test_statuses = ftrenderer.get_gherkin_piece_test_statuses(testreports_path)
-        product_config = ftrenderer.parse_product_features(productconfig_filepath)
-        feature_model.trim_based_on_config(product_config)
+        configparser = parsers.ProductConfigParser(feature_model.root_feature.name)
+        product_features = configparser.parse_config(productconfig_filepath)
+        feature_model.trim_based_on_config(product_features)
         feature_model.add_gherkin_pieces(gherkin_pieces)
         feature_model.calculate_test_statuses(gherkin_piece_test_statuses)
 
