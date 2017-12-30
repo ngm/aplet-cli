@@ -13,6 +13,7 @@ from aplet.pltools.parsers import FeatureModel, FeatureModelParser
 
 
 CONFIG = {}
+RUNNING_TEST_PROCESSES = []
 
 
 @click.group()
@@ -94,6 +95,27 @@ def get_feature_toggles_for_testrunner(featuremodel, product_config_file_path):
         return product_features
 
 
+def before_productline_steps():
+    """ Steps that need running to set up the test environment for whole product line.
+    """
+    cmd = ['phantomjs', '--webdriver', '4444']
+    click.echo("Running command" + subprocess.list2cmdline(cmd))
+    process = subprocess.Popen(cmd)
+    RUNNING_TEST_PROCESSES.append(process)
+
+
+def before_product_steps(productconfig_filepath, productapp_path):
+    """ Steps that need to run before an individual product is tested.
+    """
+    # TODO: this is product line specific and needs to be extracted
+    shutil.copyfile(productconfig_filepath, path.join(productapp_path, "todo.config"))
+
+    cmd = ['php', '-S', 'localhost:8080', '-t', productapp_path]
+    process = subprocess.Popen(cmd)
+
+    RUNNING_TEST_PROCESSES.append(process)
+
+
 @cli.command()
 @click.option("--projectfolder", default=".", help="Location to output the aplet files")
 @click.option("--product", help="If provided, will run for single product.  Otherwise all products are tested")
@@ -114,6 +136,9 @@ def runtests(projectfolder, product, app_dir):
     fmparser = parsers.FeatureModelParser()
     featuremodel = fmparser.parse_from_file(featuremodel_path)
 
+    before_productline_steps()
+
+    # Figure out which products to run for.
     product_names = []
     if product is None:
         product_names = get_product_names_from_configs_path(configs_path)
@@ -123,8 +148,7 @@ def runtests(projectfolder, product, app_dir):
     for product_name in product_names:
         productconfig_filepath = path.join(configs_path, product_name + ".config")
 
-        # TODO: this is product line specific and needs to be extracted
-        shutil.copyfile(productconfig_filepath, path.join(app_dir, "todo.config"))
+        before_product_steps(productconfig_filepath, app_dir)
 
         product_features = ftrenderer.parse_product_features(productconfig_filepath)
         trimmed_featuremodel = featuremodel.get_copy_trimmed_based_on_config(product_features)
@@ -151,6 +175,9 @@ def runtests(projectfolder, product, app_dir):
         shutil.copyfile("tests/_output/report.xml", path.join(testreport_path_without_ext + ".xml"))
 
     chdir("..")
+
+    for process in RUNNING_TEST_PROCESSES:
+        process.terminate()
 
 
 @cli.command()
