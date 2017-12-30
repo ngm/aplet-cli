@@ -2,19 +2,7 @@
 	<featureModel>
 		<properties/>
 		<struct>
-			<and abstract="true" mandatory="true" name="todoapp">
-				<and abstract="true" mandatory="true" name="TodoManagement">
-					<feature mandatory="true" name="TodoList"/>
-					<feature mandatory="true" name="AddTodo"/>
-					<feature mandatory="true" name="MarkTodoDone"/>
-				</and>
-				<and abstract="true" mandatory="true" name="TodoFields">
-					<feature mandatory="true" name="LabelField"/>
-					<feature name="DescriptionField"/>
-				</and>
-				<and name="Filter">
-					<feature name="Search"/>
-				</and>
+			<and abstract="true" mandatory="true" name="{{PROJECT_NAME}}">
 			</and>
 		</struct>
 		<constraints/>

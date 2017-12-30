@@ -46,7 +46,9 @@ def showconfig():
 
 @cli.command()
 @click.option("--projectfolder", default=".", help="Location to output the aplet files")
-def init(projectfolder):
+@click.option("--projectname", prompt="Project Name", default="My Product Line", help="Name to give the project")
+@click.option("--example/--no-example", default=False, help="Whether to create example feature model and config files")
+def init(projectfolder, projectname, example):
     """ Initialises an aplet project folder, containing example product line and docs templates.
     """
 
@@ -57,13 +59,9 @@ def init(projectfolder):
 
     if not path.exists(productline_dir):
         makedirs(productline_dir)
-    model_filepath = pkg_resources.resource_filename(__name__, 'templates/model.xml')
-    shutil.copyfile(model_filepath, path.join(productline_dir, "model.xml"))
 
     if not path.exists(configs_path):
         makedirs(configs_path)
-    exampleconfig_filepath = pkg_resources.resource_filename(__name__, 'templates/ExampleProduct.config')
-    shutil.copyfile(exampleconfig_filepath, path.join(configs_path, "ExampleProduct.config"))
 
     if not path.exists(bddfeatures_path):
         makedirs(bddfeatures_path)
@@ -71,16 +69,31 @@ def init(projectfolder):
     if not path.exists(testreports_path):
         makedirs(testreports_path)
 
+    model_src = pkg_resources.resource_filename(__name__, "templates/model.xml")
+    model_dst = path.join(productline_dir, "model.xml")
+    shutil.copyfile(model_src, model_dst)
+    utilities.sed_inplace(model_dst, "{{PROJECT_NAME}}", projectname.replace(" ", ""))
 
-    # copy template config file
-    configtemplate_filepath = pkg_resources.resource_filename(__name__, 'templates/aplet.yml')
-    shutil.copyfile(configtemplate_filepath, path.join(projectfolder, "aplet.yml"))
+    configtemplate_src = pkg_resources.resource_filename(__name__, 'templates/aplet.yml')
+    configtemplate_dst = path.join(projectfolder, "aplet.yml")
+    shutil.copyfile(configtemplate_src, configtemplate_dst)
+    utilities.sed_inplace(configtemplate_dst, "{{PROJECT_NAME}}", projectname)
 
     # copy docs templates from aplet application into projectfolder
     lektortemplates_path = pkg_resources.resource_filename(__name__, 'templates/lektor')
     doc_templates_path = path.join(projectfolder, "doc_templates")
     if not path.exists(doc_templates_path):
         shutil.copytree(lektortemplates_path, doc_templates_path)
+
+
+    if example:
+        examples_dir = "templates/exampleproject"
+        model_src = pkg_resources.resource_filename(__name__, path.join(examples_dir, "model.xml"))
+        shutil.copyfile(model_src, model_dst)
+        exampleconfig_src = pkg_resources.resource_filename(__name__, path.join(examples_dir, "ExampleProduct.config"))
+        shutil.copyfile(exampleconfig_src, path.join(configs_path, "ExampleProduct.config"))
+        configtemplate_src = pkg_resources.resource_filename(__name__, path.join(examples_dir, "aplet.yml"))
+        shutil.copyfile(configtemplate_src, configtemplate_dst)
 
 
 def get_feature_toggles_for_testrunner(featuremodel, product_config_file_path):
