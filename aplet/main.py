@@ -118,10 +118,12 @@ def runtests(projectfolder, product, app_dir):
     if product is None:
         product_names = get_product_names_from_configs_path(configs_path)
     else:
-        product_names.append(product)
+        product_names = [product]
 
     for product_name in product_names:
         productconfig_filepath = path.join(configs_path, product_name + ".config")
+
+        # TODO: this is product line specific and needs to be extracted
         shutil.copyfile(productconfig_filepath, path.join(app_dir, "todo.config"))
 
         product_features = ftrenderer.parse_product_features(productconfig_filepath)
