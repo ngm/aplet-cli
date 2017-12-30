@@ -8,7 +8,7 @@ import pkg_resources
 import yaml
 
 from aplet import utilities
-from aplet.pltools import ftrenderer, mapbuilder, plutils, parsers
+from aplet.pltools import ftrenderer, mapbuilder, parsers
 from aplet.pltools.parsers import FeatureModel, FeatureModelParser
 
 
@@ -82,6 +82,18 @@ def init(projectfolder):
         shutil.copytree(lektortemplates_path, doc_templates_path)
 
 
+def get_feature_toggles_for_testrunner(featuremodel, product_config_file_path):
+    with open(product_config_file_path, "r") as product_config_file:
+        product_features = []
+        product_features = [feature.strip() for feature in product_config_file.readlines()]
+        feature_toggles = [feature.strip() for feature in product_features]
+        optionals_names = [optional_feature.name for optional_feature in featuremodel.optional_features()]
+        not_features = ["Not" + feature for feature in set(optionals_names) - set(product_features)]
+        feature_toggles.extend(not_features)
+
+        return product_features
+
+
 @cli.command()
 @click.option("--projectfolder", default=".", help="Location to output the aplet files")
 @click.argument("product")
@@ -99,17 +111,14 @@ def runtests(projectfolder, product, app_dir):
     if not path.exists(testreports_path):
         makedirs(testreports_path)
 
+    fmparser = parsers.FeatureModelParser()
+    featuremodel = fmparser.parse_from_file(featuremodel_path)
+
     # TODO: needs some rethinking.  Where should we pick up the running app from?
     product_config_file_path = path.join(configs_path, product + ".config")
     shutil.copyfile(product_config_file_path, path.join(app_dir, "todo.config"))
 
-    feature_toggles = []
-    with open(product_config_file_path, "r") as product_config_file:
-        product_features = [feature.strip() for feature in product_config_file.readlines()]
-        feature_toggles = [feature.strip() for feature in product_features]
-        optionals = plutils.find_optional_features(featuremodel_path)
-        not_features = ["Not" + feature for feature in set(optionals) - set(product_features)]
-        feature_toggles.extend(not_features)
+    feature_toggles = get_feature_toggles_for_testrunner(featuremodel, product_config_file_path)
 
     test_runner_conf = CONFIG['test_runner']
     click.echo("Running tests with {0}".format(test_runner_conf['name']))

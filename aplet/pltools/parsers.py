@@ -74,6 +74,29 @@ class FeatureModel:
             self.trim_based_on_config_rec(child, configured_features)
 
 
+    def optional_features_rec(self, node):
+        """ Recursive function call to find the optional nodes in its children,
+        and if it is optional itself.
+        """
+        optionals = []
+
+        if not node.abstract and not node.mandatory:
+            optionals.append(node)
+
+        for child in node.children:
+            optionals.extend(self.optional_features_rec(child))
+
+        return optionals
+
+
+    # non-mandatory, concrete features
+    def optional_features(self):
+        """ Find all the optional features in a feature model.
+        """
+
+        return self.optional_features_rec(self.root_feature)
+
+
 class FeatureModelParser:
     """ Parses a FeatureIDE XML file and returns feature model data structure.
     """
