@@ -2,7 +2,7 @@
 """
 import xml.etree.ElementTree as et
 
-from aplet.pltools.plenums import TestState
+from aplet.pltools.fm import TestState
 
 class ProductMapRenderer:
     """ Build the product map HTML for a given feature model and product configurations.

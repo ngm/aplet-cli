@@ -9,7 +9,7 @@ from os import path, listdir
 from gherkin3.parser import Parser
 import graphviz as gv
 
-from aplet.pltools.plenums import NodeType, TestState
+from aplet.pltools.fm import NodeType, TestState
 
 NodeProps = namedtuple("NodeProps", "fillcolor linecolor shape style")
 

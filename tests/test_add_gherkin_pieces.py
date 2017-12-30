@@ -1,7 +1,7 @@
 from anytree import Node
 
-from aplet.pltools.plenums import NodeType
-from aplet.pltools.parsers import FeatureModel, FeatureModelParser
+from aplet.pltools.fm import NodeType, FeatureModel
+from aplet.pltools.parsers import FeatureModelParser
 
 def test_no_gherkin_pieces():
     fm = FeatureModel()

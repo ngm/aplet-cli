@@ -1,7 +1,6 @@
 from anytree import Node
 
-from aplet.pltools.plenums import NodeType, TestState
-from aplet.pltools.parsers import FeatureModel
+from aplet.pltools.fm import FeatureModel, NodeType, TestState
 
 
 def test_no_optional_features():
