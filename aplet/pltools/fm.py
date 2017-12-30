@@ -78,6 +78,9 @@ class FeatureModel:
         return copy_fm
 
     def trim_based_on_config(self, configured_features):
+        """ Given a list of configured features, trim the tree so
+        that it only includes the configured features.
+        """
         self.trim_based_on_config_rec(self.root_feature, configured_features)
 
     def trim_based_on_config_rec(self, feature, configured_features):
