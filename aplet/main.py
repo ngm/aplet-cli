@@ -269,9 +269,9 @@ def makedocs(projectfolder):
 
         # Copy test run html report to generated docs
         product_report_name = "report{0}.html".format(product_name)
-        if path.exists(product_report_name):
-            shutil.copyfile(path.join(testreports_path, product_report_name),
-                            path.join(current_product_lektor_dir, product_report_name))
+        product_results_src = path.join(testreports_path, product_report_name)
+        if path.exists(product_results_src):
+            shutil.copyfile(product_results_src, path.join(current_product_lektor_dir, product_report_name))
 
     click.echo("- Generating feature model SVG...")
     click.echo(featuremodel_path)
