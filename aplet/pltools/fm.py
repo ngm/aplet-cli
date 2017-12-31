@@ -67,12 +67,8 @@ class FeatureModel:
             for piece in feature.gherkin_pieces:
                 piece.test_status = TestState.inconclusive
                 if piece.name in test_statuses:
-                    if test_statuses[piece.name] is True:
-                        piece.test_status = TestState.passed
-                        feature.test_status = TestState.passed
-                    elif test_statuses[piece.name] is False:
-                        piece.test_status = TestState.failed
-                        feature.test_status = TestState.failed
+                    piece.test_status = test_statuses[piece.name]
+                    feature.test_status = test_statuses[piece.name]
 
         if feature.test_status is None:
             feature.test_status = TestState.inconclusive

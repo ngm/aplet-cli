@@ -92,10 +92,10 @@ class TestResultsParser:
         if acceptance_suite is not None:
             for testcase in acceptance_suite:
                 scenario_name = testcase.get("feature")
-                passed = True
+                test_status = TestState.passed
                 if testcase.find("failure") is not None:
-                    passed = False
-                results[scenario_name] = passed
+                    test_status = TestState.failed
+                results[scenario_name] = test_status
 
         return results
 
@@ -118,9 +118,16 @@ class TestResultsParser:
 
             for scenario_name in results_for_product:
                 if scenario_name not in pl_test_results:
-                    pl_test_results[scenario_name] = True
+                    pl_test_results[scenario_name] = None
 
                 result_for_product = results_for_product[scenario_name]
-                pl_test_results[scenario_name] = pl_test_results[scenario_name] and result_for_product
+                current_result_for_product_line = pl_test_results[scenario_name]
+
+                if current_result_for_product_line is TestState.failed or result_for_product is TestState.failed:
+                    pl_test_results[scenario_name] = TestState.failed
+                elif current_result_for_product_line is TestState.inconclusive or result_for_product is TestState.inconclusive:
+                    pl_test_results[scenario_name] = TestState.inconclusive
+                else:
+                    pl_test_results[scenario_name] = TestState.passed
 
         return pl_test_results
