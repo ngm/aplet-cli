@@ -96,16 +96,16 @@ def init(projectfolder, projectname, example):
         shutil.copyfile(configtemplate_src, configtemplate_dst)
 
 
-def get_feature_toggles_for_testrunner(featuremodel, product_config_file_path):
+def get_feature_toggles_for_testrunner(product_config_file_path, optional_features):
     with open(product_config_file_path, "r") as product_config_file:
         product_features = []
         product_features = [feature.strip() for feature in product_config_file.readlines()]
         feature_toggles = [feature.strip() for feature in product_features]
-        optionals_names = [optional_feature.name for optional_feature in featuremodel.optional_features()]
+        optionals_names = [optional_feature.name for optional_feature in optional_features]
         not_features = ["Not" + feature for feature in set(optionals_names) - set(product_features)]
         feature_toggles.extend(not_features)
 
-        return product_features
+        return feature_toggles
 
 
 def before_productline_steps():
@@ -166,7 +166,7 @@ def runtests(projectfolder, product, app_dir):
 
         product_features = configparser.parse_config(productconfig_filepath)
         trimmed_featuremodel = featuremodel.get_copy_trimmed_based_on_config(product_features)
-        feature_toggles = get_feature_toggles_for_testrunner(trimmed_featuremodel, productconfig_filepath)
+        feature_toggles = get_feature_toggles_for_testrunner(productconfig_filepath, featuremodel.optional_features())
 
         test_runner_conf = CONFIG['test_runner']
         click.echo("Running tests with {0}".format(test_runner_conf['name']))

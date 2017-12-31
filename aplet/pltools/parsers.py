@@ -37,6 +37,8 @@ class FeatureModelParser:
         feature.node_type = NodeType.fmfeature
         feature.abstract = bool(xml_feature.get("abstract") == "true")
         feature.mandatory = bool(xml_feature.get("mandatory") == "true")
+        if not feature.mandatory:
+            feature.notname = "Not" + feature.name
 
         for xml_child in list(xml_feature):
             self.recurse_features(xml_child, parent=feature)

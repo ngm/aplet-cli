@@ -34,8 +34,16 @@ class FeatureModel:
                 piece_node = Node(piece_name, parent=None, node_type=NodeType.gherkin_piece)
                 feature.gherkin_pieces.append(piece_node)
 
+        if not feature.mandatory and feature.notname in gherkin_pieces:
+            gherkin_pieces_for_feature = gherkin_pieces[feature.notname]
+
+            for piece_name in gherkin_pieces_for_feature:
+                piece_node = Node(piece_name, parent=None, node_type=NodeType.gherkin_piece)
+                feature.gherkin_pieces.append(piece_node)
+
         for child in feature.children:
             self.add_gherkin_pieces_rec(child, gherkin_pieces)
+
 
     def calculate_test_statuses(self, test_statuses):
         self.calculate_test_statuses_rec(self.root_feature, test_statuses) 
