@@ -112,37 +112,6 @@ class FeatureTreeRenderer:
         self.graph.render(filename=path.join(output_dir, output_filename))
 
 
-def get_gherkin_piece_test_statuses(reports_dir):
-    """ For previously produced test reports for all products in the product
-    line, parse through the results. For each scenario that has been run for
-    all of the products, check whether it passed or failed.
-    If there's a failure in any product for a given gherkin piece for any product
-    that counts as a failure for that gherkin piece for the whole product line.
-    # TODO: not sure exactly how this is working.
-    # TODO: should this be including inconclusive status?
-    """
-
-    pl_test_results = {}
-    xml_files = [file for file in listdir(reports_dir) if file.endswith(".xml")]
-    for test_results_file in xml_files:
-        file_path = path.join(reports_dir, test_results_file)
-        tree = et.parse(file_path)
-        root = tree.getroot()
-        acceptance_suite = root.find('testsuite')
-
-        if acceptance_suite is not None:
-            for testcase in acceptance_suite:
-                scenario_name = testcase.get("feature")
-                passed = True
-                if testcase.find("failure") is not None:
-                    passed = False
-                if scenario_name not in pl_test_results:
-                    pl_test_results[scenario_name] = True
-                pl_test_results[scenario_name] = pl_test_results[scenario_name] and passed
-
-    return pl_test_results
-
-
 def gherkin_pieces_grouped_by_featurename(features_dir):
     """ For a list of BDD feature files, discover the parts
     that are tagged with FM feature names (features and scenarios) and group them by the FM feature names.

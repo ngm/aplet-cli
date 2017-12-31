@@ -224,6 +224,7 @@ def makedocs(projectfolder):
     testreports_path = path.join(projectfolder, "testreports")
 
     fmparser = parsers.FeatureModelParser()
+    resultsparser = parsers.TestResultsParser()
     feature_tree_renderer = ftrenderer.FeatureTreeRenderer()
 
     docs_dir = path.join(projectfolder, "docs/generated")
@@ -241,6 +242,10 @@ def makedocs(projectfolder):
     product_names = get_product_names_from_configs_path(configs_path)
     for product_name in product_names:
         productconfig_filepath = path.join(projectfolder, "productline/configs", product_name + ".config")
+        product_html_report_name = "report{0}.html".format(product_name)
+        product_html_results_src = path.join(testreports_path, product_html_report_name)
+        product_xml_report_name = "report{0}.xml".format(product_name)
+        product_xml_results_src = path.join(testreports_path, product_xml_report_name)
 
         with open(productconfig_filepath, "r") as productconfig_file:
             products[product_name] = {}
@@ -255,7 +260,7 @@ def makedocs(projectfolder):
 
         feature_model = fmparser.parse_from_file(featuremodel_path)
         gherkin_pieces = ftrenderer.gherkin_pieces_grouped_by_featurename(bddfeatures_path)
-        gherkin_piece_test_statuses = ftrenderer.get_gherkin_piece_test_statuses(testreports_path)
+        gherkin_piece_test_statuses = resultsparser.get_gherkin_piece_test_statuses_for_product_from_file(product_xml_results_src)
         configparser = parsers.ProductConfigParser(feature_model.root_feature.name)
         product_features = configparser.parse_config(productconfig_filepath)
         feature_model.trim_based_on_config(product_features)
@@ -270,17 +275,15 @@ def makedocs(projectfolder):
         utilities.sed_inplace(product_filepath, "<<TEST_STATUS>>", product_test_status.name)
 
         # Copy test run html report to generated docs
-        product_report_name = "report{0}.html".format(product_name)
-        product_results_src = path.join(testreports_path, product_report_name)
-        if path.exists(product_results_src):
-            shutil.copyfile(product_results_src, path.join(current_product_lektor_dir, product_report_name))
+        if path.exists(product_html_results_src):
+            shutil.copyfile(product_html_results_src, path.join(current_product_lektor_dir, product_html_report_name))
 
     click.echo("- Generating feature model SVG...")
     click.echo(featuremodel_path)
 
     feature_model = fmparser.parse_from_file(featuremodel_path)
     gherkin_pieces = ftrenderer.gherkin_pieces_grouped_by_featurename(bddfeatures_path)
-    gherkin_piece_test_statuses = ftrenderer.get_gherkin_piece_test_statuses(testreports_path)
+    gherkin_piece_test_statuses = resultsparser.get_gherkin_piece_test_statuses_for_dir(testreports_path)
     feature_model.add_gherkin_pieces(gherkin_pieces)
     feature_model.calculate_test_statuses(gherkin_piece_test_statuses)
 

@@ -2,10 +2,9 @@
 """
 
 import xml.etree.ElementTree as et
-from os import path
+from os import listdir, path
 
 from anytree import Node, RenderTree
-
 from aplet.pltools.fm import FeatureModel, NodeType, TestState
 
 
@@ -68,3 +67,58 @@ class ProductConfigParser:
         product_features.append(self.root_feature_name)
 
         return product_features
+
+
+
+class TestResultsParser:
+
+    def get_gherkin_piece_test_statuses_for_product_from_file(self, xmlresults_path):
+        if not path.exists(xmlresults_path):
+            return {}
+
+        with open(xmlresults_path, "r") as file:
+            xml = file.read()
+            return self.get_gherkin_piece_test_statuses_for_product(xml)
+
+
+    def get_gherkin_piece_test_statuses_for_product(self, testresultsxml):
+        tree = et.fromstring(testresultsxml)
+        acceptance_suite = tree.find('testsuite')
+
+        results = {}
+
+        if acceptance_suite is not None:
+            for testcase in acceptance_suite:
+                scenario_name = testcase.get("feature")
+                passed = True
+                if testcase.find("failure") is not None:
+                    passed = False
+                results[scenario_name] = passed
+
+        return results
+
+
+    def get_gherkin_piece_test_statuses_for_dir(self, reports_dir):
+        """ For previously produced test reports for all products in the product
+        line, parse through the results. For each scenario that has been run for
+        all of the products, check whether it passed or failed.
+        If there's a failure in any product for a given gherkin piece for any product
+        that counts as a failure for that gherkin piece for the whole product line.
+        # TODO: not sure exactly how this is working.
+        # TODO: should this be including inconclusive status?
+        """
+        pl_test_results = {}
+
+        xml_files = [file for file in listdir(reports_dir) if file.endswith(".xml")]
+        for test_results_file in xml_files:
+            file_path = path.join(reports_dir, test_results_file)
+            results_for_product = self.get_gherkin_piece_test_statuses_for_product_from_file(file_path)
+
+            for scenario_name in results_for_product:
+                if scenario_name not in pl_test_results:
+                    pl_test_results[scenario_name] = True
+
+                result_for_product = results_for_product[scenario_name]
+                pl_test_results[scenario_name] = pl_test_results[scenario_name] and result_for_product
+
+        return pl_test_results
